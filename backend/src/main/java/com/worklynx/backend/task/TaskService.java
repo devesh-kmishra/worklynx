@@ -1,0 +1,117 @@
+package com.worklynx.backend.task;
+
+import java.util.List;
+
+import org.springframework.stereotype.Service;
+
+import com.worklynx.backend.organization.Organization;
+import com.worklynx.backend.organization.OrganizationAccessService;
+import com.worklynx.backend.organization.OrganizationRepository;
+import com.worklynx.backend.project.Project;
+import com.worklynx.backend.project.ProjectRepository;
+import com.worklynx.backend.security.UserPrincipal;
+import com.worklynx.backend.task.dto.CreateTaskRequest;
+import com.worklynx.backend.task.dto.TaskResponse;
+import com.worklynx.backend.user.User;
+import com.worklynx.backend.user.UserRepository;
+
+@Service
+public class TaskService {
+
+  private final TaskRepository taskRepository;
+  private final OrganizationRepository organizationRepository;
+  private final OrganizationAccessService accessService;
+  private final ProjectRepository projectRepository;
+  private final UserRepository userRepository;
+
+  public TaskService(
+      TaskRepository taskRepository,
+      OrganizationRepository organizationRepository,
+      OrganizationAccessService accessService,
+      ProjectRepository projectRepository,
+      UserRepository userRepository) {
+    this.taskRepository = taskRepository;
+    this.organizationRepository = organizationRepository;
+    this.accessService = accessService;
+    this.projectRepository = projectRepository;
+    this.userRepository = userRepository;
+  }
+
+  // PERSONAL TASK
+  public TaskResponse createPersonalTask(
+      CreateTaskRequest request,
+      UserPrincipal principal) {
+
+    User user = userRepository.findById(principal.getUserId()).orElseThrow();
+
+    Task task = Task.builder().title(request.getTitle()).description(request.getDescription()).createdBy(user)
+        .assignedTo(user).status(Task.Status.TODO).build();
+
+    taskRepository.save(task);
+
+    return mapToResponse(task);
+  }
+
+  public List<TaskResponse> getPersonalTasks(UserPrincipal principal) {
+
+    return taskRepository.findByCreatedByAndOrganizationIsNull(principal.getUserId()).stream().map(this::mapToResponse)
+        .toList();
+  }
+
+  // ORG TASK
+  public TaskResponse createOrgTask(
+      Long orgId, CreateTaskRequest request, UserPrincipal principal) {
+
+    Long userId = principal.getUserId();
+
+    accessService.validateMembership(userId, orgId);
+
+    Organization org = organizationRepository.findById(orgId).orElseThrow();
+
+    User creator = userRepository.findById(userId).orElseThrow();
+
+    // Project validation
+    Project project = null;
+    if (request.getProjectId() != null) {
+
+      project = projectRepository.findByIdAndOrganizationId(request.getProjectId(), orgId)
+          .orElseThrow(() -> new RuntimeException("Project not found in this organization"));
+
+      if (!project.getOrganization().getId().equals(orgId)) {
+        throw new RuntimeException("Project does not belong to this org");
+      }
+    }
+
+    // Assigned user validation
+    User assignedTo = creator;
+    if (request.getAssignedToId() != null) {
+
+      accessService.validateMembership(request.getAssignedToId(), orgId);
+
+      assignedTo = userRepository.findById(request.getAssignedToId()).orElseThrow();
+    }
+
+    Task task = Task.builder().title(request.getTitle()).description(request.getDescription()).organization(org)
+        .project(project).createdBy(creator).assignedTo(assignedTo).status(Task.Status.TODO).build();
+
+    taskRepository.save(task);
+
+    return mapToResponse(task);
+  }
+
+  public List<TaskResponse> getOrgTasks(
+      Long orgId, UserPrincipal principal) {
+
+    accessService.validateMembership(principal.getUserId(), orgId);
+
+    return taskRepository.findByOrganizationId(orgId).stream().map(this::mapToResponse).toList();
+  }
+
+  // MAPPER
+  private TaskResponse mapToResponse(Task task) {
+
+    return TaskResponse.builder().id(task.getId()).title(task.getTitle()).description(task.getDescription())
+        .status(task.getStatus().name()).projectId(task.getProject() != null ? task.getProject().getId() : null)
+        .assignedToId(task.getAssignedTo() != null ? task.getAssignedTo().getId() : null).build();
+  }
+}
