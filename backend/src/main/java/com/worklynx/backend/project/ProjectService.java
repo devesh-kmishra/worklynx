@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 
+import com.worklynx.backend.common.exception.BadRequestException;
 import com.worklynx.backend.organization.Organization;
 import com.worklynx.backend.organization.OrganizationAccessService;
 import com.worklynx.backend.organization.OrganizationRepository;
@@ -39,9 +40,11 @@ public class ProjectService {
 
     accessService.validateMembership(principal.getUserId(), orgId);
 
-    Organization organization = organizationRepository.findById(orgId).orElseThrow();
+    Organization organization = organizationRepository.findById(orgId)
+        .orElseThrow(() -> new BadRequestException("Organization not found"));
 
-    User user = userRepository.findById(principal.getUserId()).orElseThrow();
+    User user = userRepository.findById(principal.getUserId())
+        .orElseThrow(() -> new BadRequestException("User not found"));
 
     Project project = Project.builder().name(request.getName()).organization(organization).createdBy(user).build();
 

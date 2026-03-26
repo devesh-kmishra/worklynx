@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 
+import com.worklynx.backend.common.exception.BadRequestException;
 import com.worklynx.backend.organization.dto.CreateOrganizationRequest;
 import com.worklynx.backend.organization.dto.OrganizationResponse;
 import com.worklynx.backend.security.UserPrincipal;
@@ -28,7 +29,8 @@ public class OrganizationService {
   public OrganizationResponse createOrganization(
       CreateOrganizationRequest request,
       UserPrincipal principal) {
-    User user = userRepository.findById(principal.getUserId()).orElseThrow();
+    User user = userRepository.findById(principal.getUserId())
+        .orElseThrow(() -> new BadRequestException("User not found"));
 
     // Create organization
     Organization organization = Organization.builder().name(request.getName()).owner(user).build();
