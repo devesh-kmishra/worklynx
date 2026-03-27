@@ -5,7 +5,7 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 
 import com.worklynx.backend.common.exception.BadRequestException;
-import com.worklynx.backend.common.exception.ForbiddenException;
+import com.worklynx.backend.common.exception.ResourceNotFoundException;
 import com.worklynx.backend.organization.Organization;
 import com.worklynx.backend.organization.OrganizationAccessService;
 import com.worklynx.backend.organization.OrganizationRepository;
@@ -44,7 +44,8 @@ public class TaskService {
       CreateTaskRequest request,
       UserPrincipal principal) {
 
-    User user = userRepository.findById(principal.getUserId()).orElseThrow();
+    User user = userRepository.findById(principal.getUserId())
+        .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
     Task task = Task.builder().title(request.getTitle()).description(request.getDescription()).createdBy(user)
         .assignedTo(user).status(Task.Status.TODO).build();
@@ -68,19 +69,20 @@ public class TaskService {
 
     accessService.validateMembership(userId, orgId);
 
-    Organization org = organizationRepository.findById(orgId).orElseThrow();
+    Organization org = organizationRepository.findById(orgId)
+        .orElseThrow(() -> new ResourceNotFoundException("Organization not found"));
 
-    User creator = userRepository.findById(userId).orElseThrow(() -> new BadRequestException("User not found"));
+    User creator = userRepository.findById(userId).orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
     // Project validation
     Project project = null;
     if (request.getProjectId() != null) {
 
       project = projectRepository.findByIdAndOrganizationId(request.getProjectId(), orgId)
-          .orElseThrow(() -> new BadRequestException("Project not found in this organization"));
+          .orElseThrow(() -> new ResourceNotFoundException("Project not found in this organization"));
 
       if (!project.getOrganization().getId().equals(orgId)) {
-        throw new ForbiddenException("Project does not belong to this organization");
+        throw new BadRequestException("Project does not belong to this organization");
       }
     }
 
@@ -91,7 +93,7 @@ public class TaskService {
       accessService.validateMembership(request.getAssignedToId(), orgId);
 
       assignedTo = userRepository.findById(request.getAssignedToId())
-          .orElseThrow(() -> new BadRequestException("Assigned user not found"));
+          .orElseThrow(() -> new ResourceNotFoundException("Assigned user not found"));
     }
 
     Task task = Task.builder().title(request.getTitle()).description(request.getDescription()).organization(org)

@@ -1,16 +1,16 @@
 package com.worklynx.backend.auth;
 
-import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.worklynx.backend.auth.dto.AuthResponse;
 import com.worklynx.backend.auth.dto.LoginRequest;
 import com.worklynx.backend.auth.dto.RegisterRequest;
-import com.worklynx.backend.security.JwtService;
-import com.worklynx.backend.user.User;
-import com.worklynx.backend.user.UserRepository;
+import com.worklynx.backend.security.UserPrincipal;
 
 import jakarta.validation.Valid;
 
@@ -18,39 +18,31 @@ import jakarta.validation.Valid;
 @RequestMapping("/auth")
 public class AuthController {
 
-  private final UserRepository userRepository;
-  private final PasswordEncoder passwordEncoder;
-  private final JwtService jwtService;
+  private final AuthService authService;
 
-  public AuthController(
-      UserRepository userRepository,
-      PasswordEncoder passwordEncoder,
-      JwtService jwtService) {
-    this.userRepository = userRepository;
-    this.passwordEncoder = passwordEncoder;
-    this.jwtService = jwtService;
+  public AuthController(AuthService authService) {
+    this.authService = authService;
   }
 
   @PostMapping("/register")
-  public String register(@RequestBody @Valid RegisterRequest request) {
+  public AuthResponse register(@RequestBody @Valid RegisterRequest request) {
 
-    User user = User.builder().email(request.getEmail()).name(request.getName())
-        .password(passwordEncoder.encode(request.getPassword())).provider("LOCAL").build();
-
-    userRepository.save(user);
-
-    return jwtService.generateToken(user.getId(), user.getEmail());
+    return authService.register(request);
   }
 
   @PostMapping("/login")
-  public String login(@RequestBody @Valid LoginRequest request) {
+  public AuthResponse login(@RequestBody @Valid LoginRequest request) {
 
-    User user = userRepository.findByEmail(request.getEmail()).orElseThrow();
+    return authService.login(request);
+  }
 
-    if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-      throw new RuntimeException("Invalid credentials");
-    }
+  @PostMapping("/refresh")
+  public AuthResponse refresh(@RequestParam String refreshToken) {
+    return authService.refresh(refreshToken);
+  }
 
-    return jwtService.generateToken(user.getId(), user.getEmail());
+  @PostMapping("/logout")
+  public void logout(@AuthenticationPrincipal UserPrincipal principal) {
+    authService.logout(principal.getUserId());
   }
 }

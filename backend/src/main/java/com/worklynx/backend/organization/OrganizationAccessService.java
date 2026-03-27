@@ -3,6 +3,7 @@ package com.worklynx.backend.organization;
 import org.springframework.stereotype.Service;
 
 import com.worklynx.backend.common.exception.ForbiddenException;
+import com.worklynx.backend.common.exception.ResourceNotFoundException;
 
 @Service
 public class OrganizationAccessService {
@@ -26,7 +27,7 @@ public class OrganizationAccessService {
   public OrganizationMember getMembership(Long userId, Long orgId) {
 
     return memberRepository.findByUserIdAndOrganizationId(userId, orgId)
-        .orElseThrow(() -> new ForbiddenException("Membership not found"));
+        .orElseThrow(() -> new ResourceNotFoundException("Membership not found"));
   }
 
   public void requireAdminOrOwner(Long userId, Long orgId) {
