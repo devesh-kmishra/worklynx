@@ -16,6 +16,7 @@ import com.worklynx.backend.task.dto.CreateTaskRequest;
 import com.worklynx.backend.task.dto.TaskResponse;
 import com.worklynx.backend.user.User;
 import com.worklynx.backend.user.UserRepository;
+import com.worklynx.backend.websocket.TaskEventPublisher;
 
 @Service
 public class TaskService {
@@ -25,18 +26,21 @@ public class TaskService {
   private final OrganizationAccessService accessService;
   private final ProjectRepository projectRepository;
   private final UserRepository userRepository;
+  private final TaskEventPublisher eventPublisher;
 
   public TaskService(
       TaskRepository taskRepository,
       OrganizationRepository organizationRepository,
       OrganizationAccessService accessService,
       ProjectRepository projectRepository,
-      UserRepository userRepository) {
+      UserRepository userRepository,
+      TaskEventPublisher eventPublisher) {
     this.taskRepository = taskRepository;
     this.organizationRepository = organizationRepository;
     this.accessService = accessService;
     this.projectRepository = projectRepository;
     this.userRepository = userRepository;
+    this.eventPublisher = eventPublisher;
   }
 
   // PERSONAL TASK
@@ -100,6 +104,8 @@ public class TaskService {
         .project(project).createdBy(creator).assignedTo(assignedTo).status(Task.Status.TODO).build();
 
     taskRepository.save(task);
+
+    eventPublisher.publishTaskCreated(task);
 
     return mapToResponse(task);
   }

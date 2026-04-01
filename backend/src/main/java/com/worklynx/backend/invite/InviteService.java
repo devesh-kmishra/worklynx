@@ -17,6 +17,7 @@ import com.worklynx.backend.organization.OrganizationMember;
 import com.worklynx.backend.organization.OrganizationMemberRepository;
 import com.worklynx.backend.organization.OrganizationRepository;
 import com.worklynx.backend.security.UserPrincipal;
+import com.worklynx.backend.security.annotation.RequireRole;
 import com.worklynx.backend.user.User;
 import com.worklynx.backend.user.UserRepository;
 
@@ -26,7 +27,6 @@ public class InviteService {
   private final OrganizationRepository organizationRepository;
   private final OrganizationMemberRepository memberRepository;
   private final OrganizationInviteRepository inviteRepository;
-  private final OrganizationAccessService accessService;
   private final UserRepository userRepository;
 
   public InviteService(
@@ -38,16 +38,14 @@ public class InviteService {
     this.organizationRepository = organizationRepository;
     this.memberRepository = memberRepository;
     this.inviteRepository = inviteRepository;
-    this.accessService = accessService;
     this.userRepository = userRepository;
   }
 
   // SEND INVITE
+  @RequireRole({ OrganizationMember.Role.ADMIN, OrganizationMember.Role.OWNER })
   public InviteResponse createInvite(
       Long orgId, CreateInviteRequest request, UserPrincipal principal) {
     Long userId = principal.getUserId();
-
-    accessService.requireAdminOrOwner(userId, orgId);
 
     Organization org = organizationRepository.findById(orgId)
         .orElseThrow(() -> new ResourceNotFoundException("Organization not foundd"));

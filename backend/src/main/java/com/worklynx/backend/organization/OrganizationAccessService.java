@@ -30,16 +30,6 @@ public class OrganizationAccessService {
         .orElseThrow(() -> new ResourceNotFoundException("Membership not found"));
   }
 
-  public void requireAdminOrOwner(Long userId, Long orgId) {
-
-    OrganizationMember member = getMembership(userId, orgId);
-
-    if (member.getRole() != OrganizationMember.Role.ADMIN && member.getRole() != OrganizationMember.Role.OWNER) {
-
-      throw new ForbiddenException("Insufficient permissions");
-    }
-  }
-
   public void requireOwner(Long userId, Long orgId) {
 
     OrganizationMember member = getMembership(userId, orgId);

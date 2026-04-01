@@ -7,10 +7,12 @@ import org.springframework.stereotype.Service;
 import com.worklynx.backend.common.exception.ResourceNotFoundException;
 import com.worklynx.backend.organization.Organization;
 import com.worklynx.backend.organization.OrganizationAccessService;
+import com.worklynx.backend.organization.OrganizationMember;
 import com.worklynx.backend.organization.OrganizationRepository;
 import com.worklynx.backend.project.dto.CreateProjectRequest;
 import com.worklynx.backend.project.dto.ProjectResponse;
 import com.worklynx.backend.security.UserPrincipal;
+import com.worklynx.backend.security.annotation.RequireRole;
 import com.worklynx.backend.user.User;
 import com.worklynx.backend.user.UserRepository;
 
@@ -33,6 +35,7 @@ public class ProjectService {
     this.userRepository = userRepository;
   }
 
+  @RequireRole({ OrganizationMember.Role.ADMIN, OrganizationMember.Role.OWNER })
   public ProjectResponse createProject(
       Long orgId,
       CreateProjectRequest request,
