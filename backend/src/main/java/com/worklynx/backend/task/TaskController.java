@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.worklynx.backend.security.UserPrincipal;
 import com.worklynx.backend.task.dto.CreateTaskRequest;
 import com.worklynx.backend.task.dto.TaskResponse;
+import com.worklynx.backend.task.dto.UpdateTaskRequest;
 
 import jakarta.validation.Valid;
 
@@ -56,5 +58,13 @@ public class TaskController {
       @AuthenticationPrincipal UserPrincipal principal) {
 
     return taskService.getOrgTasks(orgId, principal);
+  }
+
+  @PatchMapping("/tasks/{taskId}")
+  public TaskResponse updateTask(
+      @PathVariable Long taskId,
+      @RequestBody UpdateTaskRequest request,
+      @AuthenticationPrincipal UserPrincipal principal) {
+    return taskService.updateTask(taskId, request, principal);
   }
 }

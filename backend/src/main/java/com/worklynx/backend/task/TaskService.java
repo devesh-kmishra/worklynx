@@ -1,10 +1,13 @@
 package com.worklynx.backend.task;
 
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.stereotype.Service;
 
+import com.worklynx.backend.activity.ActivityService;
 import com.worklynx.backend.common.exception.BadRequestException;
+import com.worklynx.backend.common.exception.ForbiddenException;
 import com.worklynx.backend.common.exception.ResourceNotFoundException;
 import com.worklynx.backend.organization.Organization;
 import com.worklynx.backend.organization.OrganizationAccessService;
@@ -14,6 +17,7 @@ import com.worklynx.backend.project.ProjectRepository;
 import com.worklynx.backend.security.UserPrincipal;
 import com.worklynx.backend.task.dto.CreateTaskRequest;
 import com.worklynx.backend.task.dto.TaskResponse;
+import com.worklynx.backend.task.dto.UpdateTaskRequest;
 import com.worklynx.backend.user.User;
 import com.worklynx.backend.user.UserRepository;
 import com.worklynx.backend.websocket.TaskEventPublisher;
@@ -27,6 +31,7 @@ public class TaskService {
   private final ProjectRepository projectRepository;
   private final UserRepository userRepository;
   private final TaskEventPublisher eventPublisher;
+  private final ActivityService activityService;
 
   public TaskService(
       TaskRepository taskRepository,
@@ -34,13 +39,29 @@ public class TaskService {
       OrganizationAccessService accessService,
       ProjectRepository projectRepository,
       UserRepository userRepository,
-      TaskEventPublisher eventPublisher) {
+      TaskEventPublisher eventPublisher,
+      ActivityService activityService) {
     this.taskRepository = taskRepository;
     this.organizationRepository = organizationRepository;
     this.accessService = accessService;
     this.projectRepository = projectRepository;
     this.userRepository = userRepository;
     this.eventPublisher = eventPublisher;
+    this.activityService = activityService;
+  }
+
+  public List<TaskResponse> getPersonalTasks(UserPrincipal principal) {
+
+    return taskRepository.findByCreatedByAndOrganizationIsNull(principal.getUserId()).stream().map(this::mapToResponse)
+        .toList();
+  }
+
+  public List<TaskResponse> getOrgTasks(
+      Long orgId, UserPrincipal principal) {
+
+    accessService.validateMembership(principal.getUserId(), orgId);
+
+    return taskRepository.findByOrganizationId(orgId).stream().map(this::mapToResponse).toList();
   }
 
   // PERSONAL TASK
@@ -57,12 +78,6 @@ public class TaskService {
     taskRepository.save(task);
 
     return mapToResponse(task);
-  }
-
-  public List<TaskResponse> getPersonalTasks(UserPrincipal principal) {
-
-    return taskRepository.findByCreatedByAndOrganizationIsNull(principal.getUserId()).stream().map(this::mapToResponse)
-        .toList();
   }
 
   // ORG TASK
@@ -105,17 +120,71 @@ public class TaskService {
 
     taskRepository.save(task);
 
+    activityService.log(creator, org, "TASK_CREATED", "TASK", task.getId(), Map.of("title", task.getTitle()));
+
     eventPublisher.publishTaskCreated(task);
 
     return mapToResponse(task);
   }
 
-  public List<TaskResponse> getOrgTasks(
-      Long orgId, UserPrincipal principal) {
+  public TaskResponse updateTask(
+      Long taskId, UpdateTaskRequest request, UserPrincipal principal) {
 
-    accessService.validateMembership(principal.getUserId(), orgId);
+    Task task = taskRepository.findById(taskId).orElseThrow(() -> new ResourceNotFoundException("Task not found"));
 
-    return taskRepository.findByOrganizationId(orgId).stream().map(this::mapToResponse).toList();
+    Long userId = principal.getUserId();
+
+    if (task.getOrganization() == null) {
+
+      if (!task.getCreatedBy().getId().equals(userId)) {
+        throw new ForbiddenException("Not allowed to update this task");
+      }
+
+      applyUpdates(task, request, userId, null);
+
+    } else {
+
+      Long orgId = task.getOrganization().getId();
+
+      accessService.validateMembership(userId, orgId);
+
+      applyUpdates(task, request, userId, orgId);
+    }
+
+    taskRepository.save(task);
+
+    activityService.log(task.getCreatedBy(), task.getOrganization(), "TASK_UPDATED", "TASK", task.getId(), request);
+
+    eventPublisher.publishTaskUpdated(task);
+
+    return mapToResponse(task);
+  }
+
+  private void applyUpdates(Task task, UpdateTaskRequest request, Long userId, Long orgId) {
+
+    if (request.getTitle() != null) {
+      task.setTitle(request.getTitle());
+    }
+
+    if (request.getDescription() != null) {
+      task.setDescription(request.getDescription());
+    }
+
+    if (request.getStatus() != null) {
+      task.setStatus(Task.Status.valueOf(request.getStatus()));
+    }
+
+    if (request.getAssignedToId() != null) {
+
+      if (orgId != null) {
+        accessService.validateMembership(userId, orgId);
+      }
+
+      User assigned = userRepository.findById(request.getAssignedToId())
+          .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+      task.setAssignedTo(assigned);
+    }
   }
 
   // MAPPER
@@ -126,3 +195,17 @@ public class TaskService {
         .assignedToId(task.getAssignedTo() != null ? task.getAssignedTo().getId() : null).build();
   }
 }
+
+/*
+ * ADD TO updateOrgTask
+ * activityService.log(
+ * user,
+ * task.getOrganization(),
+ * "TASK_UPDATED",
+ * "TASK",
+ * task.getId(),
+ * Map.of(
+ * "status", task.getStatus().name()
+ * )
+ * );
+ */
