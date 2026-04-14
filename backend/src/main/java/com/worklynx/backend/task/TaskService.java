@@ -1,11 +1,15 @@
 package com.worklynx.backend.task;
 
-import java.util.List;
 import java.util.Map;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 import com.worklynx.backend.activity.ActivityService;
+import com.worklynx.backend.common.dto.PagedResponse;
 import com.worklynx.backend.common.exception.BadRequestException;
 import com.worklynx.backend.common.exception.ForbiddenException;
 import com.worklynx.backend.common.exception.ResourceNotFoundException;
@@ -16,8 +20,10 @@ import com.worklynx.backend.project.Project;
 import com.worklynx.backend.project.ProjectRepository;
 import com.worklynx.backend.security.UserPrincipal;
 import com.worklynx.backend.task.dto.CreateTaskRequest;
+import com.worklynx.backend.task.dto.TaskFilterRequest;
 import com.worklynx.backend.task.dto.TaskResponse;
 import com.worklynx.backend.task.dto.UpdateTaskRequest;
+import com.worklynx.backend.task.spec.TaskSpecification;
 import com.worklynx.backend.user.User;
 import com.worklynx.backend.user.UserRepository;
 import com.worklynx.backend.websocket.TaskEventPublisher;
@@ -50,18 +56,34 @@ public class TaskService {
     this.activityService = activityService;
   }
 
-  public List<TaskResponse> getPersonalTasks(UserPrincipal principal) {
+  public PagedResponse<TaskResponse> getPersonalTasks(TaskFilterRequest filter, int page, int size,
+      UserPrincipal principal) {
 
-    return taskRepository.findByCreatedByAndOrganizationIsNull(principal.getUserId()).stream().map(this::mapToResponse)
-        .toList();
+    Specification<Task> spec = Specification.where(TaskSpecification.hasOrganization(null))
+        .and(TaskSpecification.createdBy(principal.getUserId())).and(TaskSpecification.hasStatus(filter.getStatus()));
+
+    Page<Task> result = taskRepository.findAll(spec, PageRequest.of(page, size, Sort.by("createdAt").descending()));
+
+    return mapToPagedResponse(result);
   }
 
-  public List<TaskResponse> getOrgTasks(
-      Long orgId, UserPrincipal principal) {
+  public PagedResponse<TaskResponse> getOrgTasks(
+      Long orgId, TaskFilterRequest filter, int page, int size, UserPrincipal principal) {
 
     accessService.validateMembership(principal.getUserId(), orgId);
 
-    return taskRepository.findByOrganizationId(orgId).stream().map(this::mapToResponse).toList();
+    Long assignedToId = null;
+
+    if ("me".equals(filter.getAssignedTo())) {
+      assignedToId = principal.getUserId();
+    }
+
+    Specification<Task> spec = Specification.where(TaskSpecification.hasOrganization(orgId))
+        .and(TaskSpecification.hasStatus(filter.getStatus())).and(TaskSpecification.assignedTo(assignedToId));
+
+    Page<Task> result = taskRepository.findAll(spec, PageRequest.of(page, size, Sort.by("createdAt").descending()));
+
+    return mapToPagedResponse(result);
   }
 
   // PERSONAL TASK
@@ -193,6 +215,13 @@ public class TaskService {
     return TaskResponse.builder().id(task.getId()).title(task.getTitle()).description(task.getDescription())
         .status(task.getStatus().name()).projectId(task.getProject() != null ? task.getProject().getId() : null)
         .assignedToId(task.getAssignedTo() != null ? task.getAssignedTo().getId() : null).build();
+  }
+
+  private PagedResponse<TaskResponse> mapToPagedResponse(Page<Task> page) {
+
+    return PagedResponse.<TaskResponse>builder().content(page.getContent().stream().map(this::mapToResponse).toList())
+        .page(page.getNumber()).size(page.getSize()).totalElements(page.getTotalElements())
+        .totalPages(page.getTotalPages()).build();
   }
 }
 

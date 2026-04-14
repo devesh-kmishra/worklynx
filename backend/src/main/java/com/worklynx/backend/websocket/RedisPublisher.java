@@ -3,8 +3,6 @@ package com.worklynx.backend.websocket;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
-import com.worklynx.backend.websocket.dto.TaskEvent;
-
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
@@ -21,9 +19,14 @@ public class RedisPublisher {
     this.objectMapper = objectMapper;
   }
 
-  public void publish(TaskEvent event) {
+  public void publish(Object event) {
+
+    if (event == null)
+      return;
+
     try {
       String message = objectMapper.writeValueAsString(event);
+
       redisTemplate.convertAndSend("task-events", message);
     } catch (JacksonException e) {
       throw new RuntimeException("Redis publish failed: " + e.getMessage());
