@@ -11,8 +11,8 @@ import com.worklynx.backend.common.exception.ForbiddenException;
 import com.worklynx.backend.common.exception.ResourceNotFoundException;
 import com.worklynx.backend.invite.dto.CreateInviteRequest;
 import com.worklynx.backend.invite.dto.InviteResponse;
+import com.worklynx.backend.notification.NotificationService;
 import com.worklynx.backend.organization.Organization;
-import com.worklynx.backend.organization.OrganizationAccessService;
 import com.worklynx.backend.organization.OrganizationMember;
 import com.worklynx.backend.organization.OrganizationMemberRepository;
 import com.worklynx.backend.organization.OrganizationRepository;
@@ -28,17 +28,19 @@ public class InviteService {
   private final OrganizationMemberRepository memberRepository;
   private final OrganizationInviteRepository inviteRepository;
   private final UserRepository userRepository;
+  private final NotificationService notificationService;
 
   public InviteService(
       OrganizationRepository organizationRepository,
       OrganizationMemberRepository memberRepository,
       OrganizationInviteRepository inviteRepository,
-      OrganizationAccessService accessService,
-      UserRepository userRepository) {
+      UserRepository userRepository,
+      NotificationService notificationService) {
     this.organizationRepository = organizationRepository;
     this.memberRepository = memberRepository;
     this.inviteRepository = inviteRepository;
     this.userRepository = userRepository;
+    this.notificationService = notificationService;
   }
 
   // SEND INVITE
@@ -48,7 +50,7 @@ public class InviteService {
     Long userId = principal.getUserId();
 
     Organization org = organizationRepository.findById(orgId)
-        .orElseThrow(() -> new ResourceNotFoundException("Organization not foundd"));
+        .orElseThrow(() -> new ResourceNotFoundException("Organization not found"));
 
     User inviter = userRepository.findById(userId).orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
@@ -72,6 +74,12 @@ public class InviteService {
         .invitedBy(inviter).role(role).expiresAt(Instant.now().plus(7, ChronoUnit.DAYS)).build();
 
     inviteRepository.save(invite);
+
+    User invitee = userRepository.findByEmail(invite.getEmail())
+        .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+    notificationService.notify(invitee, "INVITE_CREATED",
+        inviter.getName() + " invited you to the " + org.getName() + " organization", invite.getId());
 
     return InviteResponse.builder().email(invite.getEmail()).role(invite.getRole().name()).token(invite.getToken())
         .build();
@@ -123,5 +131,9 @@ public class InviteService {
 
     invite.setAccepted(true);
     inviteRepository.save(invite);
+
+    notificationService.notify(invite.getInvitedBy(), "INVITE_ACCEPTED",
+        user.getName() + " accepted your invite to the organization " + invite.getOrganization().getName(),
+        invite.getId());
   }
 }

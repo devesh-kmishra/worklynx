@@ -28,10 +28,14 @@ public class RedisSubscriber {
 
       String type = node.get("type").asString();
       Long orgId = node.get("orgId").asLong();
+      Long userId = node.get("userId").asLong();
 
       switch (type) {
         case "TASK_CREATED", "TASK_UPDATED", "COMMENT_CREATED" ->
           messagingTemplate.convertAndSend("/topic/org/" + orgId, message);
+
+        case "NOTIFICATION_CREATED" -> messagingTemplate.convertAndSend("/topic/user/" + userId, message);
+
         default -> {
         }
       }

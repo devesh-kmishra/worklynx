@@ -224,17 +224,3 @@ public class TaskService {
         .totalPages(page.getTotalPages()).build();
   }
 }
-
-/*
- * ADD TO updateOrgTask
- * activityService.log(
- * user,
- * task.getOrganization(),
- * "TASK_UPDATED",
- * "TASK",
- * task.getId(),
- * Map.of(
- * "status", task.getStatus().name()
- * )
- * );
- */

@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import com.worklynx.backend.comment.dto.CommentResponse;
 import com.worklynx.backend.common.exception.ForbiddenException;
 import com.worklynx.backend.common.exception.ResourceNotFoundException;
+import com.worklynx.backend.notification.NotificationService;
 import com.worklynx.backend.organization.OrganizationAccessService;
 import com.worklynx.backend.security.UserPrincipal;
 import com.worklynx.backend.task.Task;
@@ -22,18 +23,21 @@ public class CommentService {
   private final UserRepository userRepository;
   private final OrganizationAccessService accessService;
   private final CommentEventPublisher eventPublisher;
+  private final NotificationService notificationService;
 
   public CommentService(
       CommentRepository commentRepository,
       TaskRepository taskRepository,
       UserRepository userRepository,
       OrganizationAccessService accessService,
-      CommentEventPublisher eventPublisher) {
+      CommentEventPublisher eventPublisher,
+      NotificationService notificationService) {
     this.commentRepository = commentRepository;
     this.taskRepository = taskRepository;
     this.userRepository = userRepository;
     this.accessService = accessService;
     this.eventPublisher = eventPublisher;
+    this.notificationService = notificationService;
   }
 
   public CommentResponse createComment(
@@ -56,6 +60,11 @@ public class CommentService {
     Comment comment = Comment.builder().task(task).user(user).content(content).build();
 
     commentRepository.save(comment);
+
+    if (!task.getCreatedBy().getId().equals(userId)) {
+      notificationService.notify(task.getCreatedBy(),
+          "COMMENT_CREATED", user.getName() + " commented on your task", task.getId());
+    }
 
     eventPublisher.publishComment(comment);
 
