@@ -12,4 +12,6 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
   List<Project> findByOrganizationId(Long organizationId);
 
   boolean existsByIdAndOrganizationId(Long id, Long organizationId);
+
+  long countByOrganizationId(Long orgId);
 }

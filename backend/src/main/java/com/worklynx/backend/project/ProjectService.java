@@ -13,6 +13,9 @@ import com.worklynx.backend.project.dto.CreateProjectRequest;
 import com.worklynx.backend.project.dto.ProjectResponse;
 import com.worklynx.backend.security.UserPrincipal;
 import com.worklynx.backend.security.annotation.RequireRole;
+import com.worklynx.backend.subscription.Feature;
+import com.worklynx.backend.subscription.LimitType;
+import com.worklynx.backend.subscription.SubscriptionService;
 import com.worklynx.backend.user.User;
 import com.worklynx.backend.user.UserRepository;
 
@@ -23,16 +26,19 @@ public class ProjectService {
   private final OrganizationRepository organizationRepository;
   private final OrganizationAccessService accessService;
   private final UserRepository userRepository;
+  private final SubscriptionService subscriptionService;
 
   public ProjectService(
       ProjectRepository projectRepository,
       OrganizationRepository organizationRepository,
       OrganizationAccessService accessService,
-      UserRepository userRepository) {
+      UserRepository userRepository,
+      SubscriptionService subscriptionService) {
     this.projectRepository = projectRepository;
     this.organizationRepository = organizationRepository;
     this.accessService = accessService;
     this.userRepository = userRepository;
+    this.subscriptionService = subscriptionService;
   }
 
   @RequireRole({ OrganizationMember.Role.ADMIN, OrganizationMember.Role.OWNER })
@@ -40,6 +46,10 @@ public class ProjectService {
       Long orgId,
       CreateProjectRequest request,
       UserPrincipal principal) {
+
+    subscriptionService.checkFeature(orgId, Feature.CREATE_PROJECT);
+
+    subscriptionService.checkLimit(orgId, LimitType.PROJECTS_PER_ORG);
 
     accessService.validateMembership(principal.getUserId(), orgId);
 

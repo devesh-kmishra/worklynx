@@ -18,6 +18,9 @@ import com.worklynx.backend.organization.OrganizationMemberRepository;
 import com.worklynx.backend.organization.OrganizationRepository;
 import com.worklynx.backend.security.UserPrincipal;
 import com.worklynx.backend.security.annotation.RequireRole;
+import com.worklynx.backend.subscription.Feature;
+import com.worklynx.backend.subscription.LimitType;
+import com.worklynx.backend.subscription.SubscriptionService;
 import com.worklynx.backend.user.User;
 import com.worklynx.backend.user.UserRepository;
 
@@ -29,24 +32,32 @@ public class InviteService {
   private final OrganizationInviteRepository inviteRepository;
   private final UserRepository userRepository;
   private final NotificationService notificationService;
+  private final SubscriptionService subscriptionService;
 
   public InviteService(
       OrganizationRepository organizationRepository,
       OrganizationMemberRepository memberRepository,
       OrganizationInviteRepository inviteRepository,
       UserRepository userRepository,
-      NotificationService notificationService) {
+      NotificationService notificationService,
+      SubscriptionService subscriptionService) {
     this.organizationRepository = organizationRepository;
     this.memberRepository = memberRepository;
     this.inviteRepository = inviteRepository;
     this.userRepository = userRepository;
     this.notificationService = notificationService;
+    this.subscriptionService = subscriptionService;
   }
 
   // SEND INVITE
   @RequireRole({ OrganizationMember.Role.ADMIN, OrganizationMember.Role.OWNER })
   public InviteResponse createInvite(
       Long orgId, CreateInviteRequest request, UserPrincipal principal) {
+
+    subscriptionService.checkFeature(orgId, Feature.INVITE_MEMBERS);
+
+    subscriptionService.checkLimit(orgId, LimitType.MEMBERS_PER_ORG);
+
     Long userId = principal.getUserId();
 
     Organization org = organizationRepository.findById(orgId)

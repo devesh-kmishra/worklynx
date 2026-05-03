@@ -19,6 +19,8 @@ import com.worklynx.backend.organization.OrganizationRepository;
 import com.worklynx.backend.project.Project;
 import com.worklynx.backend.project.ProjectRepository;
 import com.worklynx.backend.security.UserPrincipal;
+import com.worklynx.backend.subscription.LimitType;
+import com.worklynx.backend.subscription.SubscriptionService;
 import com.worklynx.backend.task.dto.CreateTaskRequest;
 import com.worklynx.backend.task.dto.TaskFilterRequest;
 import com.worklynx.backend.task.dto.TaskResponse;
@@ -38,6 +40,7 @@ public class TaskService {
   private final UserRepository userRepository;
   private final TaskEventPublisher eventPublisher;
   private final ActivityService activityService;
+  private final SubscriptionService subscriptionService;
 
   public TaskService(
       TaskRepository taskRepository,
@@ -46,7 +49,8 @@ public class TaskService {
       ProjectRepository projectRepository,
       UserRepository userRepository,
       TaskEventPublisher eventPublisher,
-      ActivityService activityService) {
+      ActivityService activityService,
+      SubscriptionService subscriptionService) {
     this.taskRepository = taskRepository;
     this.organizationRepository = organizationRepository;
     this.accessService = accessService;
@@ -54,6 +58,7 @@ public class TaskService {
     this.userRepository = userRepository;
     this.eventPublisher = eventPublisher;
     this.activityService = activityService;
+    this.subscriptionService = subscriptionService;
   }
 
   public PagedResponse<TaskResponse> getPersonalTasks(TaskFilterRequest filter, int page, int size,
@@ -105,6 +110,8 @@ public class TaskService {
   // ORG TASK
   public TaskResponse createOrgTask(
       Long orgId, CreateTaskRequest request, UserPrincipal principal) {
+
+    subscriptionService.checkLimit(orgId, LimitType.TASKS_PER_ORG);
 
     Long userId = principal.getUserId();
 

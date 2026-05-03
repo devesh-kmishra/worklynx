@@ -8,6 +8,8 @@ import com.worklynx.backend.common.exception.ResourceNotFoundException;
 import com.worklynx.backend.organization.dto.CreateOrganizationRequest;
 import com.worklynx.backend.organization.dto.OrganizationResponse;
 import com.worklynx.backend.security.UserPrincipal;
+import com.worklynx.backend.subscription.Subscription;
+import com.worklynx.backend.subscription.SubscriptionRepository;
 import com.worklynx.backend.user.User;
 import com.worklynx.backend.user.UserRepository;
 
@@ -17,33 +19,43 @@ public class OrganizationService {
   private final OrganizationRepository organizationRepository;
   private final OrganizationMemberRepository memberRepository;
   private final UserRepository userRepository;
+  private final SubscriptionRepository subscriptionRepository;
 
   public OrganizationService(
       OrganizationRepository organizationRepository,
-      OrganizationMemberRepository memberRepository, UserRepository userRepository) {
+      OrganizationMemberRepository memberRepository, UserRepository userRepository,
+      SubscriptionRepository subscriptionRepository) {
     this.organizationRepository = organizationRepository;
     this.memberRepository = memberRepository;
     this.userRepository = userRepository;
+    this.subscriptionRepository = subscriptionRepository;
   }
 
   public OrganizationResponse createOrganization(
       CreateOrganizationRequest request,
       UserPrincipal principal) {
+
     User user = userRepository.findById(principal.getUserId())
         .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
     // Create organization
-    Organization organization = Organization.builder().name(request.getName()).owner(user).build();
+    Organization org = Organization.builder().name(request.getName()).owner(user).build();
 
-    organizationRepository.save(organization);
+    organizationRepository.save(org);
 
     // Add membership as OWNER
-    OrganizationMember member = OrganizationMember.builder().user(user).organization(organization)
+    OrganizationMember member = OrganizationMember.builder().user(user).organization(org)
         .role(OrganizationMember.Role.OWNER).build();
 
     memberRepository.save(member);
 
-    return OrganizationResponse.builder().id(organization.getId()).name(organization.getName()).build();
+    // Create default subscription
+    Subscription sub = Subscription.builder().organization(org).plan(Subscription.Plan.FREE)
+        .status(Subscription.Status.ACTIVE).build();
+
+    subscriptionRepository.save(sub);
+
+    return OrganizationResponse.builder().id(org.getId()).name(org.getName()).build();
   }
 
   public List<OrganizationResponse> getMyOrganizations(UserPrincipal principal) {
