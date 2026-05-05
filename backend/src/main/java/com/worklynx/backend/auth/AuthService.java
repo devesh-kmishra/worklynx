@@ -81,7 +81,7 @@ public class AuthService {
     refreshTokenRepository.deleteByUserId(userId);
   }
 
-  private AuthResponse generateTokens(User user) {
+  public AuthResponse generateTokens(User user) {
 
     String accessToken = jwtService.generateToken(user.getId(), user.getEmail());
 
