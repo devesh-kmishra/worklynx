@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 
 import com.worklynx.backend.auth.AuthService;
 import com.worklynx.backend.auth.dto.AuthResponse;
+import com.worklynx.backend.security.CookieUtils;
 import com.worklynx.backend.user.User;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -34,9 +35,16 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
 
     AuthResponse tokens = authService.generateTokens(user);
 
-    String redirectUrl = "http://localhost:3000/oauth-success" + "?accessToken=" + tokens.getAccessToken()
-        + "&refreshToken=" + tokens.getRefreshToken();
+    response.addHeader(
+        "Set-Cookie",
+        CookieUtils.createAccessTokenCookie(tokens.getAccessToken()).toString());
 
-    getRedirectStrategy().sendRedirect(request, response, redirectUrl);
+    response.addHeader(
+        "Set-Cookie",
+        CookieUtils.createRefreshTokenCookie(tokens.getRefreshToken()).toString());
+
+    // todo: change samesite, secure in production
+
+    getRedirectStrategy().sendRedirect(request, response, "http://localhost:3000/oauth-success");
   }
 }

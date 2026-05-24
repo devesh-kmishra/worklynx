@@ -8,6 +8,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.worklynx.backend.auth.dto.AuthResponse;
+import com.worklynx.backend.auth.dto.AuthUserResponse;
 import com.worklynx.backend.auth.dto.LoginRequest;
 import com.worklynx.backend.auth.dto.RegisterRequest;
 import com.worklynx.backend.common.exception.BadRequestException;
@@ -63,22 +64,40 @@ public class AuthService {
 
   public AuthResponse refresh(String refreshToken) {
 
-    RefreshToken token = refreshTokenRepository.findByToken(refreshToken)
+    RefreshToken existingToken = refreshTokenRepository.findByToken(refreshToken)
         .orElseThrow(() -> new BadRequestException("Invalid refresh token"));
 
-    if (token.getExpiresAt().isBefore(Instant.now())) {
+    if (existingToken.getExpiresAt().isBefore(Instant.now())) {
+
+      refreshTokenRepository.delete(existingToken);
       throw new BadRequestException("Refresh token expired");
     }
 
-    User user = token.getUser();
+    User user = existingToken.getUser();
+
+    // Invalidate old refresh token
+    refreshTokenRepository.delete(existingToken);
 
     String newAccessToken = jwtService.generateToken(user.getId(), user.getEmail());
+    String newRefreshToken = UUID.randomUUID().toString();
 
-    return new AuthResponse(newAccessToken, refreshToken);
+    RefreshToken newToken = RefreshToken.builder().token(newRefreshToken).user(user)
+        .expiresAt(Instant.now().plus(30, ChronoUnit.DAYS)).build();
+
+    refreshTokenRepository.save(newToken);
+
+    return new AuthResponse(newAccessToken, newRefreshToken);
   }
 
   public void logout(Long userId) {
     refreshTokenRepository.deleteByUserId(userId);
+  }
+
+  public AuthUserResponse getCurrentUser(Long userId) {
+
+    User user = userRepository.findById(userId).orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+    return new AuthUserResponse(user.getId(), user.getName(), user.getEmail());
   }
 
   public AuthResponse generateTokens(User user) {

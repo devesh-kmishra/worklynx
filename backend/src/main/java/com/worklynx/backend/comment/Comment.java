@@ -19,7 +19,7 @@ import lombok.Setter;
 
 @Entity
 @Table(name = "comments", indexes = {
-    @Index(name = "idx_comment_task", columnList = "tast_id")
+    @Index(name = "idx_comment_task", columnList = "task_id")
 })
 @Getter
 @Setter
