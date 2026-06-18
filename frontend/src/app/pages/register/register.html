@@ -1,0 +1,63 @@
+<div class="min-h-screen flex items-center justify-center bg-slate-100 px-4">
+  <div class="w-full max-w-md rounded-xl bg-white p-8 shadow">
+    <h1 class="text-3xl font-bold text-center">Create Account</h1>
+
+    <p class="mt-2 text-center text-gray-500">Join Worklynx</p>
+
+    @if (error()) {
+      <div class="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-600">
+        {{ error() }}
+      </div>
+    }
+
+    <form class="mt-6 space-y-4" [formGroup]="registerForm" (ngSubmit)="onSubmit()">
+      <div>
+        <label class="mb-1 block text-sm font-medium"> Name </label>
+
+        <input type="text" formControlName="name" class="w-full rounded-lg border px-3 py-2" />
+
+        @if (registerForm.controls.name.touched && registerForm.controls.name.invalid) {
+          <p class="mt-1 text-sm text-red-500">Name is required</p>
+        }
+      </div>
+
+      <div>
+        <label class="mb-1 block text-sm font-medium"> Email </label>
+
+        <input type="email" formControlName="email" class="w-full rounded-lg border px-3 py-2" />
+
+        @if (registerForm.controls.email.touched && registerForm.controls.email.invalid) {
+          <p class="mt-1 text-sm text-red-500">Enter a valid email</p>
+        }
+      </div>
+
+      <div>
+        <label class="mb-1 block text-sm font-medium"> Password </label>
+
+        <input
+          type="password"
+          formControlName="password"
+          class="w-full rounded-lg border px-3 py-2"
+        />
+
+        @if (registerForm.controls.password.touched && registerForm.controls.password.invalid) {
+          <p class="mt-1 text-sm text-red-500">Password must be at least 8 characters</p>
+        }
+      </div>
+
+      <button
+        type="submit"
+        [disabled]="loading()"
+        class="w-full rounded-lg bg-blue-600 py-2 text-white"
+      >
+        {{ loading() ? 'Creating Account...' : 'Create Account' }}
+      </button>
+    </form>
+
+    <p class="mt-6 text-center text-sm text-gray-600">
+      Already have an account?
+
+      <a routerLink="/login" class="text-blue-600 hover:underline"> Sign In </a>
+    </p>
+  </div>
+</div>
