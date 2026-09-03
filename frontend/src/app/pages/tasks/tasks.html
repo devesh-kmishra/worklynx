@@ -1,0 +1,355 @@
+<div class="mx-auto max-w-5xl">
+  <!-- Header -->
+  <div class="flex items-start justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-semibold text-slate-900">My Tasks</h1>
+
+      <p class="mt-1 text-sm text-slate-500">Keep track of everything you need to get done.</p>
+    </div>
+
+    <button
+      type="button"
+      (click)="openTaskForm()"
+      class="shrink-0 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
+    >
+      + Add task
+    </button>
+  </div>
+
+  <!-- Filters -->
+  <div class="mt-8 flex gap-1 overflow-x-auto border-b border-slate-200">
+    <button
+      type="button"
+      (click)="setFilter('ALL')"
+      [class.bg-slate-100]="activeFilter() === 'ALL'"
+      [class.text-slate-900]="activeFilter() === 'ALL'"
+      class="shrink-0 rounded-t-lg px-4 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100"
+    >
+      All
+    </button>
+
+    <button
+      type="button"
+      (click)="setFilter('TODO')"
+      [class.bg-slate-100]="activeFilter() === 'TODO'"
+      [class.text-slate-900]="activeFilter() === 'TODO'"
+      class="shrink-0 rounded-t-lg px-4 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100"
+    >
+      To Do
+    </button>
+
+    <button
+      type="button"
+      (click)="setFilter('IN_PROGRESS')"
+      [class.bg-slate-100]="activeFilter() === 'IN_PROGRESS'"
+      [class.text-slate-900]="activeFilter() === 'IN_PROGRESS'"
+      class="shrink-0 rounded-t-lg px-4 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100"
+    >
+      In Progress
+    </button>
+
+    <button
+      type="button"
+      (click)="setFilter('DONE')"
+      [class.bg-slate-100]="activeFilter() === 'DONE'"
+      [class.text-slate-900]="activeFilter() === 'DONE'"
+      class="shrink-0 rounded-t-lg px-4 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100"
+    >
+      Completed
+    </button>
+  </div>
+
+  <!-- Sorting -->
+  <div class="mt-4 flex justify-end">
+    <select
+      [value]="sort()"
+      (change)="setSort($any($event.target).value)"
+      class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+    >
+      <option value="RECENTLY_CREATED">Recently created</option>
+
+      <option value="DUE_DATE">Due date</option>
+
+      <option value="PRIORITY">Priority</option>
+    </select>
+  </div>
+
+  <!-- Error -->
+  @if (error()) {
+    <div class="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+      {{ error() }}
+    </div>
+  }
+
+  <!-- Loading -->
+  @if (loading()) {
+    <div class="mt-4 rounded-lg border border-slate-200 bg-white px-5 py-16 text-center">
+      <p class="text-sm text-slate-500">Loading tasks...</p>
+    </div>
+  } @else {
+    <!-- Task list -->
+    <div class="mt-4 divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
+      @for (task of tasks(); track task.id) {
+        <div
+          class="group flex items-center gap-3 px-4 py-4 transition hover:bg-slate-50 sm:gap-4 sm:px-5"
+        >
+          <!-- Completion checkbox -->
+          <button
+            type="button"
+            (click)="updateTaskStatus(task, task.status === 'DONE' ? 'TODO' : 'DONE')"
+            [attr.aria-label]="task.status === 'DONE' ? 'Mark task as incomplete' : 'Complete task'"
+            class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition"
+            [class.border-blue-600]="task.status === 'DONE'"
+            [class.bg-blue-600]="task.status === 'DONE'"
+            [class.border-slate-300]="task.status !== 'DONE'"
+            [class.hover:border-blue-500]="task.status !== 'DONE'"
+          >
+            @if (task.status === 'DONE') {
+              <span class="text-xs font-bold text-white"> ✓ </span>
+            }
+          </button>
+
+          <!-- Task content -->
+          <div class="min-w-0 flex-1">
+            <div class="flex min-w-0 items-center gap-2">
+              <h2
+                class="truncate text-sm font-medium text-slate-900"
+                [class.line-through]="task.status === 'DONE'"
+                [class.text-slate-400]="task.status === 'DONE'"
+              >
+                {{ task.title }}
+              </h2>
+            </div>
+
+            @if (task.description) {
+              <p class="mt-1 truncate text-xs text-slate-500">
+                {{ task.description }}
+              </p>
+            }
+
+            <!-- Mobile metadata -->
+            <div class="mt-2 flex items-center gap-3 sm:hidden">
+              <span class="flex items-center gap-1.5 text-xs">
+                <span class="h-2 w-2 rounded-full" [class]="getPriorityClass(task.priority)"></span>
+
+                {{ getPriorityLabel(task.priority) }}
+              </span>
+
+              @if (task.dueDate) {
+                <span
+                  class="text-xs"
+                  [class.text-red-600]="isOverdue(task)"
+                  [class.text-slate-500]="!isOverdue(task)"
+                >
+                  {{ formatDueDate(task) }}
+                </span>
+              }
+            </div>
+          </div>
+
+          <!-- Priority -->
+          <div class="hidden items-center gap-2 sm:flex">
+            <span class="h-2 w-2 rounded-full" [class]="getPriorityClass(task.priority)"></span>
+
+            <span class="text-xs text-slate-500">
+              {{ getPriorityLabel(task.priority) }}
+            </span>
+          </div>
+
+          <!-- Status -->
+          <span
+            class="hidden rounded-full px-2.5 py-1 text-xs font-medium md:inline-block"
+            [class]="getStatusClass(task.status)"
+          >
+            {{ getStatusLabel(task.status) }}
+          </span>
+
+          <!-- Due date -->
+          @if (task.dueDate) {
+            <span
+              class="hidden min-w-20 text-right text-xs md:block"
+              [class.font-medium]="isOverdue(task)"
+              [class.text-red-600]="isOverdue(task)"
+              [class.text-slate-500]="!isOverdue(task)"
+            >
+              {{ formatDueDate(task) }}
+            </span>
+          }
+
+          <!-- Action menu -->
+          <div class="relative shrink-0">
+            <button
+              type="button"
+              (click)="toggleMenu(task.id)"
+              class="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+              aria-label="Task actions"
+            >
+              ⋮
+            </button>
+
+            @if (openMenuTaskId() === task.id) {
+              <div
+                class="absolute right-0 top-full z-20 mt-1 w-44 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+              >
+                <button
+                  type="button"
+                  (click)="updateTaskStatus(task, 'TODO'); closeMenu()"
+                  [disabled]="task.status === 'TODO'"
+                  class="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-default disabled:opacity-40"
+                >
+                  To Do
+                </button>
+
+                <button
+                  type="button"
+                  (click)="updateTaskStatus(task, 'IN_PROGRESS'); closeMenu()"
+                  [disabled]="task.status === 'IN_PROGRESS'"
+                  class="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-default disabled:opacity-40"
+                >
+                  In Progress
+                </button>
+
+                <button
+                  type="button"
+                  (click)="updateTaskStatus(task, 'DONE'); closeMenu()"
+                  [disabled]="task.status === 'DONE'"
+                  class="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-default disabled:opacity-40"
+                >
+                  Done
+                </button>
+
+                <div class="my-1 border-t border-slate-100"></div>
+
+                <button
+                  type="button"
+                  (click)="openEditTask(task)"
+                  class="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                >
+                  Edit
+                </button>
+
+                <button
+                  type="button"
+                  (click)="confirmDelete(task)"
+                  class="block w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+                >
+                  Delete
+                </button>
+              </div>
+            }
+          </div>
+        </div>
+      } @empty {
+        <div class="px-5 py-16 text-center">
+          <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100">
+            <span class="text-xl">✓</span>
+          </div>
+
+          <p class="mt-4 text-sm font-medium text-slate-700">No tasks found</p>
+
+          <p class="mt-1 text-sm text-slate-500">Create a task to get started.</p>
+        </div>
+      }
+    </div>
+
+    <!-- Pagination -->
+    @if (totalPages() > 1) {
+      <div class="mt-4 flex items-center justify-between">
+        <p class="text-sm text-slate-500">
+          {{ totalElements() }}
+          {{ totalElements() === 1 ? 'task' : 'tasks' }}
+        </p>
+
+        <div class="flex items-center gap-1">
+          <button
+            type="button"
+            (click)="previousPage()"
+            [disabled]="page() === 0"
+            class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Previous
+          </button>
+
+          @for (pageNumber of getPageNumbers(); track pageNumber) {
+            <button
+              type="button"
+              (click)="goToPage(pageNumber)"
+              class="hidden h-8 min-w-8 rounded-lg px-2 text-sm sm:block"
+              [class.bg-blue-600]="page() === pageNumber"
+              [class.text-white]="page() === pageNumber"
+              [class.text-slate-600]="page() !== pageNumber"
+              [class.hover:bg-slate-100]="page() !== pageNumber"
+            >
+              {{ pageNumber + 1 }}
+            </button>
+          }
+
+          <button
+            type="button"
+            (click)="nextPage()"
+            [disabled]="page() >= totalPages() - 1"
+            class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Next
+          </button>
+        </div>
+      </div>
+    }
+  }
+</div>
+
+<!-- Create task -->
+@if (showTaskForm()) {
+  <app-task-form (taskCreated)="handleTaskCreated($event)" (cancelled)="closeTaskForm()" />
+}
+
+<!-- Edit task -->
+@if (editingTask()) {
+  <app-task-form
+    [task]="editingTask()"
+    (taskUpdated)="handleTaskUpdated($event)"
+    (cancelled)="closeEditTask()"
+  />
+}
+
+<!-- Delete confirmation -->
+@if (taskToDelete()) {
+  <div class="fixed inset-0 z-50 flex items-center justify-center px-4">
+    <button
+      type="button"
+      class="absolute inset-0 bg-slate-900/40"
+      aria-label="Cancel delete"
+      (click)="cancelDelete()"
+    ></button>
+
+    <div class="relative z-10 w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+      <h2 class="text-lg font-semibold text-slate-900">Delete task?</h2>
+
+      <p class="mt-2 text-sm text-slate-600">
+        Are you sure you want to delete
+        <span class="font-medium"> "{{ taskToDelete()?.title }}" </span>? This action cannot be
+        undone.
+      </p>
+
+      <div class="mt-6 flex justify-end gap-3">
+        <button
+          type="button"
+          (click)="cancelDelete()"
+          [disabled]="deleting()"
+          class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+        >
+          Cancel
+        </button>
+
+        <button
+          type="button"
+          (click)="deleteTask()"
+          [disabled]="deleting()"
+          class="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60"
+        >
+          {{ deleting() ? 'Deleting...' : 'Delete task' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

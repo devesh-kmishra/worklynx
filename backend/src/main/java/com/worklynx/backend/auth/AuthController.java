@@ -32,7 +32,7 @@ public class AuthController {
   }
 
   @PostMapping("/register")
-  public ResponseEntity<?> register(
+  public ResponseEntity<Void> register(
       @RequestBody @Valid RegisterRequest request,
       HttpServletResponse response) {
 
@@ -46,7 +46,7 @@ public class AuthController {
   }
 
   @PostMapping("/login")
-  public ResponseEntity<?> login(
+  public ResponseEntity<Void> login(
       @RequestBody @Valid LoginRequest request,
       HttpServletResponse response) {
 
@@ -60,7 +60,7 @@ public class AuthController {
   }
 
   @PostMapping("/refresh")
-  public ResponseEntity<?> refresh(HttpServletRequest request,
+  public ResponseEntity<Void> refresh(HttpServletRequest request,
       HttpServletResponse response) {
 
     String refreshToken = null;
@@ -89,7 +89,7 @@ public class AuthController {
   }
 
   @PostMapping("/logout")
-  public ResponseEntity<?> logout(
+  public ResponseEntity<Void> logout(
       @AuthenticationPrincipal UserPrincipal principal, HttpServletResponse response) {
 
     authService.logout(principal.getUserId());

@@ -1,6 +1,7 @@
 package com.worklynx.backend.task;
 
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -73,5 +74,12 @@ public class TaskController {
       @RequestBody UpdateTaskRequest request,
       @AuthenticationPrincipal UserPrincipal principal) {
     return taskService.updateTask(taskId, request, principal);
+  }
+
+  @DeleteMapping("/tasks/{taskId}")
+  public void deleteTask(@PathVariable Long taskId,
+      @AuthenticationPrincipal UserPrincipal principal) {
+
+    taskService.deleteTask(taskId, principal);
   }
 }

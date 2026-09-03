@@ -41,7 +41,7 @@ export class Register {
       next: () => {
         this.authService.me().subscribe({
           next: () => {
-            this.router.navigate(['/dashboard']);
+            this.router.navigate(['/tasks']);
           },
         });
       },

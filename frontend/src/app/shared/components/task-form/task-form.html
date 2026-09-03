@@ -1,0 +1,170 @@
+<div class="fixed inset-0 z-50 flex items-center justify-center px-4">
+  <!-- Backdrop -->
+  <button
+    type="button"
+    class="absolute inset-0 cursor-default bg-slate-900/40"
+    aria-label="Close dialog"
+    (click)="cancel()"
+  ></button>
+
+  <!-- Modal -->
+  <div class="relative z-10 w-full max-w-lg rounded-xl bg-white shadow-xl">
+    <!-- Header -->
+    <div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+      <div>
+        <h2 class="text-lg font-semibold text-slate-900">
+          {{ isEditMode ? 'Edit task' : 'Create task' }}
+        </h2>
+
+        <p class="mt-1 text-sm text-slate-500">
+          {{
+            isEditMode ? 'Update the details of your task.' : 'Add something you need to get done.'
+          }}
+        </p>
+      </div>
+
+      <button
+        type="button"
+        (click)="cancel()"
+        [disabled]="loading()"
+        class="rounded-md p-1 text-xl leading-none text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-50"
+        aria-label="Close"
+      >
+        ×
+      </button>
+    </div>
+
+    <!-- Form -->
+    <form [formGroup]="taskForm" (ngSubmit)="submit()" class="space-y-5 px-6 py-5">
+      <!-- Error -->
+      @if (error()) {
+        <div class="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
+          {{ error() }}
+        </div>
+      }
+
+      <!-- Title -->
+      <div>
+        <label for="task-title" class="mb-1.5 block text-sm font-medium text-slate-700">
+          Title
+        </label>
+
+        <input
+          id="task-title"
+          type="text"
+          formControlName="title"
+          placeholder="What needs to be done?"
+          autocomplete="off"
+          class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+        />
+
+        @if (taskForm.controls.title.touched && taskForm.controls.title.hasError('required')) {
+          <p class="mt-1 text-xs text-red-600">Title is required.</p>
+        }
+
+        @if (taskForm.controls.title.touched && taskForm.controls.title.hasError('maxlength')) {
+          <p class="mt-1 text-xs text-red-600">Title cannot exceed 200 characters.</p>
+        }
+      </div>
+
+      <!-- Description -->
+      <div>
+        <label for="task-description" class="mb-1.5 block text-sm font-medium text-slate-700">
+          Description
+          <span class="font-normal text-slate-400"> (optional) </span>
+        </label>
+
+        <textarea
+          id="task-description"
+          formControlName="description"
+          rows="4"
+          placeholder="Add some details..."
+          class="w-full resize-none rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+        ></textarea>
+
+        @if (
+          taskForm.controls.description.touched &&
+          taskForm.controls.description.hasError('maxlength')
+        ) {
+          <p class="mt-1 text-xs text-red-600">Description cannot exceed 5000 characters.</p>
+        }
+      </div>
+
+      <!-- Status + Priority -->
+      <div class="grid grid-cols-2 gap-4">
+        <!-- Status -->
+        <div>
+          <label for="task-status" class="mb-1.5 block text-sm font-medium text-slate-700">
+            Status
+          </label>
+
+          <select
+            id="task-status"
+            formControlName="status"
+            class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+          >
+            <option value="TODO">To Do</option>
+            <option value="IN_PROGRESS">In Progress</option>
+            <option value="DONE">Done</option>
+          </select>
+        </div>
+
+        <!-- Priority -->
+        <div>
+          <label for="task-priority" class="mb-1.5 block text-sm font-medium text-slate-700">
+            Priority
+          </label>
+
+          <select
+            id="task-priority"
+            formControlName="priority"
+            class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+          >
+            <option value="LOW">Low</option>
+            <option value="MEDIUM">Medium</option>
+            <option value="HIGH">High</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Due date -->
+      <div>
+        <label for="task-due-date" class="mb-1.5 block text-sm font-medium text-slate-700">
+          Due date
+          <span class="font-normal text-slate-400"> (optional) </span>
+        </label>
+
+        <input
+          id="task-due-date"
+          type="date"
+          formControlName="dueDate"
+          class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+        />
+      </div>
+
+      <!-- Actions -->
+      <div class="flex justify-end gap-3 border-t border-slate-100 pt-4">
+        <button
+          type="button"
+          (click)="cancel()"
+          [disabled]="loading()"
+          class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+        >
+          Cancel
+        </button>
+
+        <button
+          type="submit"
+          [disabled]="loading()"
+          class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          @if (loading()) {
+            Saving...
+          } @else {
+            {{ isEditMode ? 'Save changes' : 'Create task' }}
+          }
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

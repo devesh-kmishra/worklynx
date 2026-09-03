@@ -6,6 +6,7 @@ import java.util.UUID;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.worklynx.backend.auth.dto.AuthResponse;
 import com.worklynx.backend.auth.dto.AuthUserResponse;
@@ -89,6 +90,7 @@ public class AuthService {
     return new AuthResponse(newAccessToken, newRefreshToken);
   }
 
+  @Transactional
   public void logout(Long userId) {
     refreshTokenRepository.deleteByUserId(userId);
   }

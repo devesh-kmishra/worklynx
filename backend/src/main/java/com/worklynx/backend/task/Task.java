@@ -1,5 +1,7 @@
 package com.worklynx.backend.task;
 
+import java.time.LocalDate;
+
 import com.worklynx.backend.common.BaseEntity;
 import com.worklynx.backend.organization.Organization;
 import com.worklynx.backend.project.Project;
@@ -35,7 +37,14 @@ public class Task extends BaseEntity {
   private String description;
 
   @Enumerated(EnumType.STRING)
+  @Column(nullable = false)
   private Status status;
+
+  @Enumerated(EnumType.STRING)
+  @Column(nullable = false)
+  private TaskPriority priority;
+
+  private LocalDate dueDate;
 
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "organization_id")

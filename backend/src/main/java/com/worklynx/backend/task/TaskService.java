@@ -64,10 +64,24 @@ public class TaskService {
   public PagedResponse<TaskResponse> getPersonalTasks(TaskFilterRequest filter, int page, int size,
       UserPrincipal principal) {
 
-    Specification<Task> spec = Specification.where(TaskSpecification.hasOrganization(null))
-        .and(TaskSpecification.createdBy(principal.getUserId())).and(TaskSpecification.hasStatus(filter.getStatus()));
+    Page<Task> result;
 
-    Page<Task> result = taskRepository.findAll(spec, PageRequest.of(page, size, Sort.by("createdAt").descending()));
+    if (filter.getSort() == TaskSort.PRIORITY) {
+      Task.Status status = null;
+
+      if (filter.getStatus() != null) {
+        status = Task.Status.valueOf(filter.getStatus());
+      }
+
+      result = taskRepository.findPersonalTasksByPriority(principal.getUserId(), status, PageRequest.of(page, size));
+    } else {
+      Specification<Task> spec = Specification
+          .where(TaskSpecification.hasOrganization(null))
+          .and(TaskSpecification.createdBy(principal.getUserId()))
+          .and(TaskSpecification.hasStatus(filter.getStatus()));
+
+      result = taskRepository.findAll(spec, PageRequest.of(page, size, getTaskSort(filter.getSort())));
+    }
 
     return mapToPagedResponse(result);
   }
@@ -83,10 +97,12 @@ public class TaskService {
       assignedToId = principal.getUserId();
     }
 
-    Specification<Task> spec = Specification.where(TaskSpecification.hasOrganization(orgId))
-        .and(TaskSpecification.hasStatus(filter.getStatus())).and(TaskSpecification.assignedTo(assignedToId));
+    Specification<Task> spec = Specification
+        .where(TaskSpecification.hasOrganization(orgId))
+        .and(TaskSpecification.hasStatus(filter.getStatus()))
+        .and(TaskSpecification.assignedTo(assignedToId));
 
-    Page<Task> result = taskRepository.findAll(spec, PageRequest.of(page, size, Sort.by("createdAt").descending()));
+    Page<Task> result = taskRepository.findAll(spec, PageRequest.of(page, size, getTaskSort(filter.getSort())));
 
     return mapToPagedResponse(result);
   }
@@ -99,8 +115,15 @@ public class TaskService {
     User user = userRepository.findById(principal.getUserId())
         .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-    Task task = Task.builder().title(request.getTitle()).description(request.getDescription()).createdBy(user)
-        .assignedTo(user).status(Task.Status.TODO).build();
+    Task task = Task.builder()
+        .title(request.getTitle())
+        .description(request.getDescription())
+        .createdBy(user)
+        .assignedTo(user)
+        .status(request.getStatus() != null ? request.getStatus() : Task.Status.TODO)
+        .priority(request.getPriority() != null ? request.getPriority() : TaskPriority.MEDIUM)
+        .dueDate(request.getDueDate())
+        .build();
 
     taskRepository.save(task);
 
@@ -144,8 +167,17 @@ public class TaskService {
           .orElseThrow(() -> new ResourceNotFoundException("Assigned user not found"));
     }
 
-    Task task = Task.builder().title(request.getTitle()).description(request.getDescription()).organization(org)
-        .project(project).createdBy(creator).assignedTo(assignedTo).status(Task.Status.TODO).build();
+    Task task = Task.builder()
+        .title(request.getTitle())
+        .description(request.getDescription())
+        .organization(org)
+        .project(project)
+        .createdBy(creator)
+        .assignedTo(assignedTo)
+        .status(request.getStatus() != null ? request.getStatus() : Task.Status.TODO)
+        .priority(request.getPriority() != null ? request.getPriority() : TaskPriority.MEDIUM)
+        .dueDate(request.getDueDate())
+        .build();
 
     taskRepository.save(task);
 
@@ -189,6 +221,25 @@ public class TaskService {
     return mapToResponse(task);
   }
 
+  public void deleteTask(Long taskId, UserPrincipal principal) {
+
+    Task task = taskRepository.findById(taskId).orElseThrow(() -> new ResourceNotFoundException("Task not found"));
+
+    Long userId = principal.getUserId();
+
+    if (task.getOrganization() == null) {
+      if (!task.getCreatedBy().getId().equals(userId)) {
+        throw new ForbiddenException("Not allowed to delete this task.");
+      }
+    } else {
+      Long orgId = task.getOrganization().getId();
+
+      accessService.validateMembership(userId, orgId);
+    }
+
+    taskRepository.delete(task);
+  }
+
   private void applyUpdates(Task task, UpdateTaskRequest request, Long userId, Long orgId) {
 
     if (request.getTitle() != null) {
@@ -201,6 +252,14 @@ public class TaskService {
 
     if (request.getStatus() != null) {
       task.setStatus(Task.Status.valueOf(request.getStatus()));
+    }
+
+    if (request.getPriority() != null) {
+      task.setPriority(request.getPriority());
+    }
+
+    if (request.getDueDate() != null) {
+      task.setDueDate(request.getDueDate());
     }
 
     if (request.getAssignedToId() != null) {
@@ -216,12 +275,36 @@ public class TaskService {
     }
   }
 
+  private Sort getTaskSort(TaskSort sort) {
+    switch (sort) {
+      case DUE_DATE:
+        return Sort.by(Sort.Order.asc("dueDate").nullsLast(), Sort.Order.desc("createdAt"));
+      case PRIORITY:
+        return Sort.by(Sort.Order.desc("priority"), Sort.Order.desc("createdAt"));
+      default:
+        return Sort.by(Sort.Order.desc("createdAt"));
+    }
+  }
+
   // MAPPER
   private TaskResponse mapToResponse(Task task) {
 
-    return TaskResponse.builder().id(task.getId()).title(task.getTitle()).description(task.getDescription())
-        .status(task.getStatus().name()).projectId(task.getProject() != null ? task.getProject().getId() : null)
-        .assignedToId(task.getAssignedTo() != null ? task.getAssignedTo().getId() : null).build();
+    return TaskResponse.builder()
+        .id(task.getId())
+        .title(task.getTitle())
+        .description(task.getDescription())
+        .status(task.getStatus().name())
+        .priority(task.getPriority())
+        .dueDate(task.getDueDate())
+        .createdAt(task.getCreatedAt())
+        .updatedAt(task.getUpdatedAt())
+        .projectId(task.getProject() != null
+            ? task.getProject().getId()
+            : null)
+        .assignedToId(task.getAssignedTo() != null
+            ? task.getAssignedTo().getId()
+            : null)
+        .build();
   }
 
   private PagedResponse<TaskResponse> mapToPagedResponse(Page<Task> page) {

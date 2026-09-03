@@ -19,14 +19,22 @@ public class CookieUtils {
   }
 
   public static ResponseCookie deleteAccessTokenCookie() {
-
-    return ResponseCookie.from("accessToken", "").httpOnly(true).secure(false).path("/").maxAge(0).sameSite("Lax")
+    return ResponseCookie.from("accessToken", "")
+        .httpOnly(true)
+        .secure(false)
+        .path("/")
+        .maxAge(0)
+        .sameSite("Lax")
         .build();
   }
 
   public static ResponseCookie deleteRefreshTokenCookie() {
-
-    return ResponseCookie.from("refreshToken", "").httpOnly(true).secure(false).path("/").maxAge(0).sameSite("Lax")
+    return ResponseCookie.from("refreshToken", "")
+        .httpOnly(true)
+        .secure(false)
+        .path("/")
+        .maxAge(0)
+        .sameSite("Lax")
         .build();
   }
 }

@@ -41,7 +41,7 @@ export class Login {
       next: () => {
         this.authService.me().subscribe({
           next: () => {
-            this.router.navigate(['/']);
+            this.router.navigate(['/tasks']);
           },
         });
       },

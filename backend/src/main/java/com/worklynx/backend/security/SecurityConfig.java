@@ -37,7 +37,9 @@ public class SecurityConfig {
     http.csrf(csrf -> csrf.disable())
         .cors(Customizer.withDefaults())
         .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-        .authorizeHttpRequests(auth -> auth.requestMatchers("/auth/**").permitAll().anyRequest().authenticated())
+        .authorizeHttpRequests(
+            auth -> auth.requestMatchers("/auth/login", "/auth/register", "/auth/refresh", "/oauth2/**", "/login/**")
+                .permitAll().anyRequest().authenticated())
         .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
         .oauth2Login(oauth -> oauth.userInfoEndpoint(userInfo -> userInfo.userService(customOAuth2UserService))
             .successHandler(oAuth2SuccessHandler));
