@@ -37,6 +37,19 @@ export class TaskService {
     });
   }
 
+  getBoardTasks(status?: TaskStatus): Observable<Task[]> {
+    let params = new HttpParams();
+
+    if (status) {
+      params = params.set('status', status);
+    }
+
+    return this.http.get<Task[]>(`${this.apiUrl}/board`, {
+      params,
+      withCredentials: true,
+    });
+  }
+
   createTask(request: CreateTaskRequest): Observable<Task> {
     return this.http.post<Task>(this.apiUrl, request, {
       withCredentials: true,

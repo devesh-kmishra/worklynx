@@ -1,5 +1,6 @@
 package com.worklynx.backend.task;
 
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.data.domain.Page;
@@ -86,6 +87,18 @@ public class TaskService {
     return mapToPagedResponse(result);
   }
 
+  public List<TaskResponse> getPersonalBoardTasks(
+      TaskFilterRequest filter, UserPrincipal principal) {
+
+    Specification<Task> spec = Specification.where(TaskSpecification.hasOrganization(null))
+        .and(TaskSpecification.createdBy(principal.getUserId()))
+        .and(TaskSpecification.hasStatus(filter.getStatus()));
+
+    List<Task> tasks = taskRepository.findAll(spec, Sort.by(Sort.Order.desc("createdAt")));
+
+    return tasks.stream().map(this::mapToResponse).toList();
+  }
+
   public PagedResponse<TaskResponse> getOrgTasks(
       Long orgId, TaskFilterRequest filter, int page, int size, UserPrincipal principal) {
 
@@ -107,7 +120,6 @@ public class TaskService {
     return mapToPagedResponse(result);
   }
 
-  // PERSONAL TASK
   public TaskResponse createPersonalTask(
       CreateTaskRequest request,
       UserPrincipal principal) {
@@ -130,7 +142,6 @@ public class TaskService {
     return mapToResponse(task);
   }
 
-  // ORG TASK
   public TaskResponse createOrgTask(
       Long orgId, CreateTaskRequest request, UserPrincipal principal) {
 

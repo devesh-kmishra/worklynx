@@ -1,5 +1,7 @@
 package com.worklynx.backend.task;
 
+import java.util.List;
+
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -45,6 +47,14 @@ public class TaskController {
       @AuthenticationPrincipal UserPrincipal principal) {
 
     return taskService.getPersonalTasks(filter, page, size, principal);
+  }
+
+  @GetMapping("/tasks/board")
+  public List<TaskResponse> getPersonalBoardTasks(
+      TaskFilterRequest filter,
+      @AuthenticationPrincipal UserPrincipal principal) {
+
+    return taskService.getPersonalBoardTasks(filter, principal);
   }
 
   // Org

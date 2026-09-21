@@ -1,13 +1,17 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, WritableSignal } from '@angular/core';
 import { TaskService } from '../../core/services/task';
 import { Task, TaskPriority, TaskSort, TaskStatus } from '../../core/models/task.model';
 import { TaskForm } from '../../shared/components/task-form/task-form';
+import { TaskCard } from '../../shared/components/task-card/task-card';
+import { KanbanBoard } from './kanban-board/kanban-board';
+
+type TaskView = 'LIST' | 'KANBAN';
 
 type TaskFilter = 'ALL' | 'TODO' | 'IN_PROGRESS' | 'DONE';
 
 @Component({
   selector: 'app-tasks',
-  imports: [TaskForm],
+  imports: [TaskCard, TaskForm, KanbanBoard],
   templateUrl: './tasks.html',
   styleUrl: './tasks.css',
 })
@@ -15,6 +19,7 @@ export class Tasks {
   private taskService = inject(TaskService);
 
   tasks = signal<Task[]>([]);
+  boardTasks = signal<Task[]>([]);
 
   editingTask = signal<Task | null>(null);
   taskToDelete = signal<Task | null>(null);
@@ -23,6 +28,7 @@ export class Tasks {
   loading = signal(true);
   error = signal('');
 
+  viewMode = signal<TaskView>('LIST');
   activeFilter = signal<TaskFilter>('ALL');
   sort = signal<TaskSort>('RECENTLY_CREATED');
   page = signal(0);
@@ -37,19 +43,33 @@ export class Tasks {
     this.loadTasks();
   }
 
-  loadTasks() {
+  loadTasks(): void {
     this.loading.set(true);
     this.error.set('');
 
-    const filter = this.activeFilter();
+    this.taskService
+      .getTasks(this.page(), this.pageSize, this.getStatusFilter(), this.sort())
+      .subscribe({
+        next: (response) => {
+          this.tasks.set(response.content);
+          this.totalPages.set(response.totalPages);
+          this.totalElements.set(response.totalElements);
+          this.loading.set(false);
+        },
+        error: (error) => {
+          this.error.set(error?.error?.message ?? 'Unable to load your tasks.');
+          this.loading.set(false);
+        },
+      });
+  }
 
-    const status = filter === 'ALL' ? undefined : filter;
+  loadBoardTasks(): void {
+    this.loading.set(true);
+    this.error.set('');
 
-    this.taskService.getTasks(this.page(), this.pageSize, status, this.sort()).subscribe({
-      next: (response) => {
-        this.tasks.set(response.content);
-        this.totalPages.set(response.totalPages);
-        this.totalElements.set(response.totalElements);
+    this.taskService.getBoardTasks(this.getStatusFilter()).subscribe({
+      next: (tasks) => {
+        this.boardTasks.set(tasks);
         this.loading.set(false);
       },
       error: (error) => {
@@ -59,17 +79,25 @@ export class Tasks {
     });
   }
 
+  setViewMode(mode: TaskView): void {
+    this.viewMode.set(mode);
+
+    if (mode === 'KANBAN') {
+      this.loadBoardTasks();
+    }
+  }
+
   setFilter(filter: TaskFilter) {
     this.activeFilter.set(filter);
     this.page.set(0);
-    this.closeMenu();
-    this.loadTasks();
+
+    if (this.viewMode() === 'KANBAN') this.loadBoardTasks();
+    else this.loadTasks();
   }
 
   setSort(sort: TaskSort) {
     this.sort.set(sort);
     this.page.set(0);
-    this.closeMenu();
     this.loadTasks();
   }
 
@@ -97,31 +125,47 @@ export class Tasks {
   updateTaskStatus(task: Task, status: TaskStatus) {
     if (task.status === status) return;
 
+    const previousTask = task;
+
+    // Optimistically update the board
+    this.updateTaskInCollection(this.tasks, task.id, { status });
+    this.updateTaskInCollection(this.boardTasks, task.id, { status });
+
     this.taskService.updateTask(task.id, { status }).subscribe({
       next: (updatedTask) => {
-        this.tasks.update((tasks) =>
-          tasks.map((currentTask) =>
-            currentTask.id === updatedTask.id ? updatedTask : currentTask,
-          ),
-        );
+        this.updateTaskLocally(updatedTask);
       },
       error: (error) => {
         this.error.set(error?.error?.message ?? 'Unable to update the task.');
+        // Revert the optimistic update
+        this.updateTaskLocally(previousTask);
       },
     });
   }
 
-  toggleMenu(taskId: number) {
-    this.openMenuTaskId.update((current) => (current === taskId ? null : taskId));
+  private updateTaskInCollection(
+    collection: WritableSignal<Task[]>,
+    taskId: number,
+    changes: Partial<Task>,
+  ): void {
+    collection.update((tasks) =>
+      tasks.map((task) => (task.id === taskId ? { ...task, ...changes } : task)),
+    );
   }
 
-  closeMenu() {
-    this.openMenuTaskId.set(null);
+  private updateTaskLocally(updatedTask: Task): void {
+    this.replaceTask(this.tasks, updatedTask);
+    this.replaceTask(this.boardTasks, updatedTask);
+  }
+
+  private replaceTask(collection: WritableSignal<Task[]>, updatedTask: Task): void {
+    collection.update((tasks) =>
+      tasks.map((task) => (task.id === updatedTask.id ? updatedTask : task)),
+    );
   }
 
   openTaskForm() {
     this.editingTask.set(null);
-    this.closeMenu();
     this.showTaskForm.set(true);
   }
 
@@ -130,23 +174,25 @@ export class Tasks {
   }
 
   handleTaskCreated(task: Task) {
-    // If on first page, show new task immediately
-    if (this.page() === 0) {
-      this.tasks.update((tasks) => [task, ...tasks]);
-
-      // Keep page size consistent
-      this.tasks.update((tasks) => tasks.slice(0, this.pageSize));
-    } else {
-      // Reload to show newly-created task
-      this.loadTasks();
-    }
-
     this.showTaskForm.set(false);
+
+    if (this.viewMode() === 'KANBAN') this.loadBoardTasks();
+    else {
+      // If on first page, show new task immediately
+      if (this.page() === 0) {
+        this.tasks.update((tasks) => [task, ...tasks]);
+
+        // Keep page size consistent
+        this.tasks.update((tasks) => tasks.slice(0, this.pageSize));
+      } else {
+        // Reload to show newly-created task
+        this.loadTasks();
+      }
+    }
   }
 
   openEditTask(task: Task) {
     this.showTaskForm.set(false);
-    this.closeMenu();
     this.editingTask.set(task);
   }
 
@@ -154,7 +200,12 @@ export class Tasks {
     this.editingTask.set(null);
   }
 
-  handleTaskUpdated(updatedTask: Task) {
+  handleTaskUpdated(updatedTask: Task): void {
+    this.showTaskForm.set(false);
+
+    this.boardTasks.update((tasks) =>
+      tasks.map((task) => (task.id === updatedTask.id ? updatedTask : task)),
+    );
     this.tasks.update((tasks) =>
       tasks.map((task) => (task.id === updatedTask.id ? updatedTask : task)),
     );
@@ -163,7 +214,6 @@ export class Tasks {
   }
 
   confirmDelete(task: Task) {
-    this.closeMenu();
     this.taskToDelete.set(task);
   }
 
@@ -183,6 +233,9 @@ export class Tasks {
     this.taskService.deleteTask(task.id).subscribe({
       next: () => {
         this.tasks.update((tasks) => tasks.filter((currentTask) => currentTask.id !== task.id));
+        this.boardTasks.update((tasks) =>
+          tasks.filter((currentTask) => currentTask.id !== task.id),
+        );
 
         this.totalElements.update((total) => Math.max(0, total - 1));
 
@@ -310,6 +363,23 @@ export class Tasks {
       String(date.getMonth() + 1).padStart(2, '0'),
       String(date.getDate()).padStart(2, '0'),
     ].join('-');
+  }
+
+  private getStatusFilter(): TaskStatus | undefined {
+    const filter = this.activeFilter();
+
+    if (filter === 'ALL') return undefined;
+
+    switch (filter) {
+      case 'TODO':
+        return 'TODO';
+
+      case 'IN_PROGRESS':
+        return 'IN_PROGRESS';
+
+      case 'DONE':
+        return 'DONE';
+    }
   }
 
   getPageNumbers(): number[] {
