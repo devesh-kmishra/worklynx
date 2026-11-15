@@ -28,6 +28,16 @@ export const routes: Routes = [
         path: 'projects',
         loadComponent: () => import('./pages/projects/projects').then((m) => m.Projects),
       },
+      {
+        path: 'settings',
+        children: [
+          {
+            path: 'account',
+            loadComponent: () =>
+              import('./pages/settings/account/account-settings').then((m) => m.AccountSettings),
+          },
+        ],
+      },
     ],
   },
   {

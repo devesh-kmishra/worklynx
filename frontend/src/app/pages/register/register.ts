@@ -52,4 +52,12 @@ export class Register {
       },
     });
   }
+
+  loginWithGoogle(): void {
+    this.authService.loginWithGoogle();
+  }
+
+  loginWithGithub(): void {
+    this.authService.loginWithGithub();
+  }
 }

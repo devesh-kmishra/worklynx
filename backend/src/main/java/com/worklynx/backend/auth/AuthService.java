@@ -43,8 +43,11 @@ public class AuthService {
       throw new BadRequestException("Email already in use");
     }
 
-    User user = User.builder().email(request.getEmail()).name(request.getName())
-        .password(passwordEncoder.encode(request.getPassword())).provider("LOCAL").build();
+    User user = User.builder()
+        .email(request.getEmail())
+        .name(request.getName())
+        .password(passwordEncoder.encode(request.getPassword()))
+        .build();
 
     userRepository.save(user);
 
@@ -82,7 +85,9 @@ public class AuthService {
     String newAccessToken = jwtService.generateToken(user.getId(), user.getEmail());
     String newRefreshToken = UUID.randomUUID().toString();
 
-    RefreshToken newToken = RefreshToken.builder().token(newRefreshToken).user(user)
+    RefreshToken newToken = RefreshToken.builder()
+        .token(newRefreshToken)
+        .user(user)
         .expiresAt(Instant.now().plus(30, ChronoUnit.DAYS)).build();
 
     refreshTokenRepository.save(newToken);

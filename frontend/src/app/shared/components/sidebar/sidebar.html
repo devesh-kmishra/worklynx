@@ -1,15 +1,17 @@
 <div class="flex h-full flex-col border-r bg-white">
+  <!-- Logo -->
   <div class="border-b p-4">
     <h1 class="text-xl font-bold">Worklynx</h1>
   </div>
 
+  <!-- Main navigation -->
   <nav class="flex-1 p-3">
     <ul class="space-y-2">
       <li>
         <a
           routerLink="/dashboard"
-          routerLinkActive="bg-slate-100"
-          class="block rounded-lg px-3 py-2"
+          routerLinkActive="bg-slate-100 text-slate-900"
+          class="block rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"
         >
           Dashboard
         </a>
@@ -36,4 +38,15 @@
       </li>
     </ul>
   </nav>
+
+  <!-- Account navigation -->
+  <div class="border-t p-3">
+    <a
+      routerLink="/settings/account"
+      routerLinkActive="bg-slate-100 text-slate-900"
+      class="block rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"
+    >
+      Account Settings
+    </a>
+  </div>
 </div>

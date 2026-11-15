@@ -29,10 +29,6 @@ public class User extends BaseEntity {
   @Column(nullable = false)
   private String name;
 
-  private String provider;
-
-  private String providerId;
-
   @Column
   private String password;
 

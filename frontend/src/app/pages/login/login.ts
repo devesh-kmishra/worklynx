@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AuthService } from '../../core/services/auth';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 
 @Component({
   selector: 'app-login',
@@ -20,6 +20,15 @@ export class Login {
   loading = signal(false);
 
   error = signal('');
+
+  oauthError = false;
+
+  sessionExpired = false;
+
+  constructor(private route: ActivatedRoute) {
+    this.oauthError = this.route.snapshot.queryParamMap.get('oauthError') === 'true';
+    this.sessionExpired = this.route.snapshot.queryParamMap.get('sessionExpired') === 'true';
+  }
 
   loginForm = this.fb.nonNullable.group({
     email: ['', [Validators.required, Validators.email]],
@@ -51,5 +60,13 @@ export class Login {
         this.error.set(err?.error?.message ?? 'Login failed. Please try again.');
       },
     });
+  }
+
+  loginWithGoogle(): void {
+    this.authService.loginWithGoogle();
+  }
+
+  loginWithGithub(): void {
+    this.authService.loginWithGithub();
   }
 }

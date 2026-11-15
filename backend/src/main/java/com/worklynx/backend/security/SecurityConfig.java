@@ -14,6 +14,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import com.worklynx.backend.auth.oauth.CustomOAuth2UserService;
+import com.worklynx.backend.auth.oauth.OAuth2FailureHandler;
 import com.worklynx.backend.auth.oauth.OAuth2SuccessHandler;
 
 @Configuration
@@ -22,13 +23,16 @@ public class SecurityConfig {
   private final JwtAuthenticationFilter jwtFilter;
   private final CustomOAuth2UserService customOAuth2UserService;
   private final OAuth2SuccessHandler oAuth2SuccessHandler;
+  private final OAuth2FailureHandler oAuth2FailureHandler;
 
   public SecurityConfig(JwtAuthenticationFilter jwtFilter,
       CustomOAuth2UserService customOAuth2UserService,
-      OAuth2SuccessHandler oAuth2SuccessHandler) {
+      OAuth2SuccessHandler oAuth2SuccessHandler,
+      OAuth2FailureHandler oAuth2FailureHandler) {
     this.jwtFilter = jwtFilter;
     this.customOAuth2UserService = customOAuth2UserService;
     this.oAuth2SuccessHandler = oAuth2SuccessHandler;
+    this.oAuth2FailureHandler = oAuth2FailureHandler;
   }
 
   @Bean
@@ -39,10 +43,13 @@ public class SecurityConfig {
         .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(
             auth -> auth.requestMatchers("/auth/login", "/auth/register", "/auth/refresh", "/oauth2/**", "/login/**")
-                .permitAll().anyRequest().authenticated())
+                .permitAll()
+                .anyRequest()
+                .authenticated())
         .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
         .oauth2Login(oauth -> oauth.userInfoEndpoint(userInfo -> userInfo.userService(customOAuth2UserService))
-            .successHandler(oAuth2SuccessHandler));
+            .successHandler(oAuth2SuccessHandler)
+            .failureHandler(oAuth2FailureHandler));
 
     return http.build();
   }

@@ -1,16 +1,21 @@
-import { computed, Injectable, signal } from '@angular/core';
+import { computed, inject, Injectable, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { User } from '../models/user.model';
+import { Router } from '@angular/router';
 
 @Injectable({
   providedIn: 'root',
 })
 export class AuthService {
+  private router = inject(Router);
+
   private apiUrl = `${environment.apiUrl}/auth`;
 
   private currentUserSignal = signal<User | null>(null);
+
+  sessionExpired = signal(false);
 
   currentUser = computed(() => this.currentUserSignal());
 
@@ -30,6 +35,15 @@ export class AuthService {
     });
   }
 
+  loginWithGoogle(): void {
+    // Redirect to Spring Security, which will redirect to the provider
+    window.location.assign(`${environment.apiUrl}/oauth2/authorization/google`);
+  }
+
+  loginWithGithub(): void {
+    window.location.assign(`${environment.apiUrl}/oauth2/authorization/github`);
+  }
+
   logout(): Observable<void> {
     return this.http
       .post<void>(
@@ -41,7 +55,10 @@ export class AuthService {
       )
       .pipe(
         tap({
-          next: () => this.currentUserSignal.set(null),
+          next: () => {
+            this.currentUserSignal.set(null);
+            this.router.navigate(['/login']);
+          },
         }),
       );
   }
@@ -68,7 +85,37 @@ export class AuthService {
     );
   }
 
+  getConnections(): Observable<AccountConnectionsResponse> {
+    return this.http.get<AccountConnectionsResponse>(`${this.apiUrl}/connections`, {
+      withCredentials: true,
+    });
+  }
+
+  startOAuthLink(provider: 'google' | 'github'): Observable<{ authorizationPath: string }> {
+    return this.http.post<{ authorizationPath: string }>(
+      `${this.apiUrl}/link/${provider}`,
+      {},
+      { withCredentials: true },
+    );
+  }
+
+  disconnectProvider(provider: 'google' | 'github'): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/connections/${provider}`, {
+      withCredentials: true,
+    });
+  }
+
   setUser(user: User | null) {
     this.currentUserSignal.set(user);
   }
+}
+
+export interface ConnectedProvider {
+  provider: 'GOOGLE' | 'GITHUB';
+  canDisconnect: boolean;
+}
+
+export interface AccountConnectionsResponse {
+  passwordLoginEnabled: boolean;
+  providers: ConnectedProvider[];
 }

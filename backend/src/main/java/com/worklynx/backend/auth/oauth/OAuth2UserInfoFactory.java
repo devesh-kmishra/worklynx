@@ -14,8 +14,6 @@ public class OAuth2UserInfoFactory {
 
       case "github" -> new GithubOAuth2UserInfo(attributes);
 
-      case "microsoft" -> new MicrosoftOAuth2UserInfo(attributes);
-
       default -> throw new RuntimeException("Unsupported provider");
     };
   }
