@@ -1,9 +1,12 @@
 package com.worklynx.backend.subscription;
 
+import java.time.Instant;
+
 import org.springframework.stereotype.Service;
 
 import com.worklynx.backend.common.exception.ForbiddenException;
 import com.worklynx.backend.common.exception.ResourceNotFoundException;
+import com.worklynx.backend.invite.OrganizationInviteRepository;
 import com.worklynx.backend.organization.OrganizationMemberRepository;
 import com.worklynx.backend.project.ProjectRepository;
 import com.worklynx.backend.task.TaskRepository;
@@ -17,6 +20,7 @@ public class SubscriptionService {
   private final ProjectRepository projectRepository;
   private final OrganizationMemberRepository memberRepository;
   private final TaskRepository taskRepository;
+  private final OrganizationInviteRepository inviteRepository;
 
   public SubscriptionService(
       SubscriptionRepository repository,
@@ -24,13 +28,15 @@ public class SubscriptionService {
       UsageLimitService usageLimitService,
       ProjectRepository projectRepository,
       OrganizationMemberRepository memberRepository,
-      TaskRepository taskRepository) {
+      TaskRepository taskRepository,
+      OrganizationInviteRepository inviteRepository) {
     this.repository = repository;
     this.featureAccessService = featureAccessService;
     this.usageLimitService = usageLimitService;
     this.projectRepository = projectRepository;
     this.memberRepository = memberRepository;
     this.taskRepository = taskRepository;
+    this.inviteRepository = inviteRepository;
   }
 
   public Subscription getByOrg(Long orgId) {
@@ -64,6 +70,36 @@ public class SubscriptionService {
 
     if (currentCount >= limit) {
       throw new ForbiddenException("Limit reached for " + type + ". Upgrade your plan.");
+    }
+  }
+
+  public void checkMemberCapacityForInvite(Long orgId) {
+    checkMemberCapacity(orgId, null);
+  }
+
+  public void checkMemberCapacityForAcceptance(
+      Long orgId, Long inviteId) {
+    checkMemberCapacity(orgId, inviteId);
+  }
+
+  private void checkMemberCapacity(
+      Long orgId, Long excludedInviteId) {
+    Subscription sub = getByOrg(orgId);
+
+    int limit = usageLimitService.getLimit(
+        LimitType.MEMBERS_PER_ORG,
+        sub.getPlan());
+
+    long members = memberRepository.countByOrganizationId(orgId);
+
+    Instant now = Instant.now();
+
+    long pendingInvites = excludedInviteId == null
+        ? inviteRepository.countByOrganizationIdAndAcceptedFalseAndExpiresAtAfter(orgId, now)
+        : inviteRepository.countByOrganizationIdAndAcceptedFalseAndExpiresAtAfterAndIdNot(orgId, now, excludedInviteId);
+
+    if (members + pendingInvites >= limit) {
+      throw new ForbiddenException("Member limit reached. Upgrade your plan.");
     }
   }
 }

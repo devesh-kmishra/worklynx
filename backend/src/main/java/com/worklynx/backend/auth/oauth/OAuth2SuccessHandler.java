@@ -161,7 +161,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
 
     if (email != null && !email.isBlank() && principal.isEmailVerified()) {
 
-      Optional<User> emailOwner = userRepository.findByEmail(email);
+      Optional<User> emailOwner = userRepository.findByEmailIgnoreCase(email);
 
       if (emailOwner.isPresent() && !emailOwner.get().getId().equals(userId)) {
         redirect(request, response, "/settings/account?linkError=email_in_use");

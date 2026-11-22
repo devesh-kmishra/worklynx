@@ -22,57 +22,68 @@ import com.worklynx.backend.user.UserRepository;
 @Service
 public class ProjectService {
 
-  private final ProjectRepository projectRepository;
-  private final OrganizationRepository organizationRepository;
-  private final OrganizationAccessService accessService;
-  private final UserRepository userRepository;
-  private final SubscriptionService subscriptionService;
+    private final ProjectRepository projectRepository;
+    private final OrganizationRepository organizationRepository;
+    private final OrganizationAccessService accessService;
+    private final UserRepository userRepository;
+    private final SubscriptionService subscriptionService;
 
-  public ProjectService(
-      ProjectRepository projectRepository,
-      OrganizationRepository organizationRepository,
-      OrganizationAccessService accessService,
-      UserRepository userRepository,
-      SubscriptionService subscriptionService) {
-    this.projectRepository = projectRepository;
-    this.organizationRepository = organizationRepository;
-    this.accessService = accessService;
-    this.userRepository = userRepository;
-    this.subscriptionService = subscriptionService;
-  }
+    public ProjectService(
+            ProjectRepository projectRepository,
+            OrganizationRepository organizationRepository,
+            OrganizationAccessService accessService,
+            UserRepository userRepository,
+            SubscriptionService subscriptionService) {
+        this.projectRepository = projectRepository;
+        this.organizationRepository = organizationRepository;
+        this.accessService = accessService;
+        this.userRepository = userRepository;
+        this.subscriptionService = subscriptionService;
+    }
 
-  @RequireRole({ OrganizationMember.Role.ADMIN, OrganizationMember.Role.OWNER })
-  public ProjectResponse createProject(
-      Long orgId,
-      CreateProjectRequest request,
-      UserPrincipal principal) {
+    @RequireRole({ OrganizationMember.Role.ADMIN, OrganizationMember.Role.OWNER })
+    public ProjectResponse createProject(
+            Long orgId,
+            CreateProjectRequest request,
+            UserPrincipal principal) {
 
-    subscriptionService.checkFeature(orgId, Feature.CREATE_PROJECT);
+        accessService.validateMembership(principal.getUserId(), orgId);
 
-    subscriptionService.checkLimit(orgId, LimitType.PROJECTS_PER_ORG);
+        subscriptionService.checkFeature(orgId, Feature.CREATE_PROJECT);
 
-    accessService.validateMembership(principal.getUserId(), orgId);
+        subscriptionService.checkLimit(orgId, LimitType.PROJECTS_PER_ORG);
 
-    Organization organization = organizationRepository.findById(orgId)
-        .orElseThrow(() -> new ResourceNotFoundException("Organization not found"));
+        Organization organization = organizationRepository.findById(orgId)
+                .orElseThrow(() -> new ResourceNotFoundException("Organization not found"));
 
-    User user = userRepository.findById(principal.getUserId())
-        .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        User user = userRepository.findById(principal.getUserId())
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-    Project project = Project.builder().name(request.getName()).organization(organization).createdBy(user).build();
+        Project project = Project.builder()
+                .name(request.getName())
+                .organization(organization)
+                .createdBy(user)
+                .build();
 
-    projectRepository.save(project);
+        projectRepository.save(project);
 
-    return ProjectResponse.builder().id(project.getId()).name(project.getName()).build();
-  }
+        return ProjectResponse.builder()
+                .id(project.getId())
+                .name(project.getName())
+                .build();
+    }
 
-  public List<ProjectResponse> getProjects(
-      Long orgId,
-      UserPrincipal principal) {
+    public List<ProjectResponse> getProjects(
+            Long orgId,
+            UserPrincipal principal) {
 
-    accessService.validateMembership(principal.getUserId(), orgId);
+        accessService.validateMembership(principal.getUserId(), orgId);
 
-    return projectRepository.findByOrganizationId(orgId).stream()
-        .map(project -> ProjectResponse.builder().id(project.getId()).name(project.getName()).build()).toList();
-  }
+        return projectRepository.findByOrganizationId(orgId).stream()
+                .map(project -> ProjectResponse.builder()
+                        .id(project.getId())
+                        .name(project.getName())
+                        .build())
+                .toList();
+    }
 }

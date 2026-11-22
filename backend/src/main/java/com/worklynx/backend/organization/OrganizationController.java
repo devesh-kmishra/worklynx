@@ -31,7 +31,7 @@ public class OrganizationController {
     return organizationService.createOrganization(request, principal);
   }
 
-  @GetMapping("/my")
+  @GetMapping({ "/my", "/overview" })
   public List<OrganizationResponse> getMyOrganizations(
       @AuthenticationPrincipal UserPrincipal principal) {
     return organizationService.getMyOrganizations(principal);

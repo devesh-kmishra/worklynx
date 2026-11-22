@@ -5,6 +5,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.worklynx.backend.common.exception.BadRequestException;
 import com.worklynx.backend.common.exception.ForbiddenException;
@@ -19,7 +20,6 @@ import com.worklynx.backend.organization.OrganizationRepository;
 import com.worklynx.backend.security.UserPrincipal;
 import com.worklynx.backend.security.annotation.RequireRole;
 import com.worklynx.backend.subscription.Feature;
-import com.worklynx.backend.subscription.LimitType;
 import com.worklynx.backend.subscription.SubscriptionService;
 import com.worklynx.backend.user.User;
 import com.worklynx.backend.user.UserRepository;
@@ -50,49 +50,75 @@ public class InviteService {
   }
 
   // SEND INVITE
+  @Transactional
   @RequireRole({ OrganizationMember.Role.ADMIN, OrganizationMember.Role.OWNER })
   public InviteResponse createInvite(
-      Long orgId, CreateInviteRequest request, UserPrincipal principal) {
+      Long orgId,
+      CreateInviteRequest request,
+      UserPrincipal principal) {
 
-    subscriptionService.checkFeature(orgId, Feature.INVITE_MEMBERS);
-
-    subscriptionService.checkLimit(orgId, LimitType.MEMBERS_PER_ORG);
+    Organization org = organizationRepository
+        .findByIdForUpdate(orgId)
+        .orElseThrow(() -> new ResourceNotFoundException("Organization not found"));
 
     Long userId = principal.getUserId();
 
-    Organization org = organizationRepository.findById(orgId)
-        .orElseThrow(() -> new ResourceNotFoundException("Organization not found"));
+    subscriptionService.checkFeature(orgId, Feature.INVITE_MEMBERS);
+    subscriptionService.checkMemberCapacityForInvite(orgId);
 
-    User inviter = userRepository.findById(userId).orElseThrow(() -> new ResourceNotFoundException("User not found"));
+    User inviter = userRepository.findById(userId)
+        .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+    User invitee = userRepository.findByEmailIgnoreCase(request.getEmail())
+        .orElseThrow(() -> new ResourceNotFoundException("Worklynx account not found"));
+
+    if (memberRepository.existsByUserIdAndOrganizationId(
+        invitee.getId(), orgId)) {
+      throw new BadRequestException("User is already a member of this organization");
+    }
+
+    Instant now = Instant.now();
+
+    if (inviteRepository.existsByOrganizationIdAndEmailIgnoreCaseAndAcceptedFalseAndExpiresAtAfter(orgId,
+        invitee.getEmail(), now)) {
+      throw new BadRequestException("An active invitation already exists for this user");
+    }
 
     OrganizationMember.Role role;
+
     try {
-      role = OrganizationMember.Role.valueOf(request.getRole());
+      role = OrganizationMember.Role.valueOf(request.getRole().toUpperCase());
     } catch (Exception e) {
       throw new BadRequestException("Invalid role");
     }
 
-    // Prevent duplicate membership
-    userRepository.findByEmail(request.getEmail()).ifPresent(user -> {
-      if (memberRepository.existsByUserIdAndOrganizationId(user.getId(), orgId)) {
-        throw new BadRequestException("User already in organization");
-      }
-    });
+    if (role == OrganizationMember.Role.OWNER) {
+      throw new BadRequestException("The OWNER role cannot be assigned through invitations");
+    }
 
     String token = UUID.randomUUID().toString();
 
-    OrganizationInvite invite = OrganizationInvite.builder().email(request.getEmail()).token(token).organization(org)
-        .invitedBy(inviter).role(role).expiresAt(Instant.now().plus(7, ChronoUnit.DAYS)).build();
+    OrganizationInvite invite = OrganizationInvite.builder()
+        .email(invitee.getEmail())
+        .token(token)
+        .organization(org)
+        .invitedBy(inviter)
+        .role(role)
+        .expiresAt(now.plus(7, ChronoUnit.DAYS))
+        .build();
 
     inviteRepository.save(invite);
 
-    User invitee = userRepository.findByEmail(invite.getEmail())
-        .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+    notificationService.notify(
+        invitee,
+        "INVITE_CREATED",
+        inviter.getName() + " invited you to the " + org.getName() + " organization",
+        invite.getId());
 
-    notificationService.notify(invitee, "INVITE_CREATED",
-        inviter.getName() + " invited you to the " + org.getName() + " organization", invite.getId());
-
-    return InviteResponse.builder().email(invite.getEmail()).role(invite.getRole().name()).token(invite.getToken())
+    return InviteResponse.builder()
+        .email(invite.getEmail())
+        .role(invite.getRole().name())
+        .token(invite.getToken())
         .build();
   }
 
@@ -110,14 +136,19 @@ public class InviteService {
       throw new BadRequestException("Invite expired");
     }
 
-    return InviteResponse.builder().email(invite.getEmail()).role(invite.getRole().name()).token(invite.getToken())
+    return InviteResponse.builder()
+        .email(invite.getEmail())
+        .role(invite.getRole().name())
+        .token(invite.getToken())
         .build();
   }
 
   // ACCEPT INVITE
+  @Transactional
   public void acceptInvite(String token, UserPrincipal principal) {
 
-    OrganizationInvite invite = inviteRepository.findByToken(token)
+    OrganizationInvite invite = inviteRepository
+        .findByTokenForUpdate(token)
         .orElseThrow(() -> new ResourceNotFoundException("Invite not found"));
 
     if (invite.isAccepted()) {
@@ -128,6 +159,12 @@ public class InviteService {
       throw new BadRequestException("Invite expired");
     }
 
+    Long orgId = invite.getOrganization().getId();
+
+    Organization org = organizationRepository
+        .findByIdForUpdate(orgId)
+        .orElseThrow(() -> new ResourceNotFoundException("Organization not found"));
+
     User user = userRepository.findById(principal.getUserId())
         .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
@@ -135,16 +172,26 @@ public class InviteService {
       throw new ForbiddenException("This invite is not for your email");
     }
 
-    OrganizationMember member = OrganizationMember.builder().user(user).organization(invite.getOrganization())
-        .role(invite.getRole()).build();
+    if (memberRepository.existsByUserIdAndOrganizationId(user.getId(), orgId)) {
+      throw new BadRequestException("You are already a member of this organization");
+    }
+
+    subscriptionService.checkMemberCapacityForAcceptance(orgId, invite.getId());
+
+    OrganizationMember member = OrganizationMember.builder()
+        .user(user)
+        .organization(org)
+        .role(invite.getRole())
+        .build();
 
     memberRepository.save(member);
 
     invite.setAccepted(true);
-    inviteRepository.save(invite);
 
-    notificationService.notify(invite.getInvitedBy(), "INVITE_ACCEPTED",
-        user.getName() + " accepted your invite to the organization " + invite.getOrganization().getName(),
+    notificationService.notify(
+        invite.getInvitedBy(),
+        "INVITE_ACCEPTED",
+        user.getName() + " accepted your invite to the organization " + org.getName(),
         invite.getId());
   }
 }

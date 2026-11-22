@@ -14,11 +14,24 @@ public class FeatureAccessService {
   public FeatureAccessService() {
 
     featureMap.put(Feature.CREATE_PROJECT,
-        Set.of(Subscription.Plan.PRO, Subscription.Plan.ENTERPRISE));
+        Set.of(
+            Subscription.Plan.FREE,
+            Subscription.Plan.PRO,
+            Subscription.Plan.ENTERPRISE));
 
-    featureMap.put(Feature.INVITE_MEMBERS, Set.of(Subscription.Plan.PRO, Subscription.Plan.ENTERPRISE));
+    featureMap.put(Feature.INVITE_MEMBERS,
+        Set.of(
+            Subscription.Plan.FREE,
+            Subscription.Plan.PRO,
+            Subscription.Plan.ENTERPRISE));
 
-    featureMap.put(Feature.REALTIME_COLLAB, Set.of(Subscription.Plan.PRO, Subscription.Plan.ENTERPRISE));
+    featureMap.put(Feature.REALTIME_COLLAB,
+        Set.of(
+            Subscription.Plan.PRO,
+            Subscription.Plan.ENTERPRISE));
+
+    featureMap.put(Feature.ADVANCED_ANALYTICS,
+        Set.of(Subscription.Plan.ENTERPRISE));
   }
 
   public boolean isAllowed(Feature feature, Subscription.Plan plan) {
