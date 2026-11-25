@@ -2,6 +2,8 @@ package com.worklynx.backend.subscription;
 
 import java.time.Instant;
 
+import com.worklynx.backend.billing.enums.BillingInterval;
+import com.worklynx.backend.billing.enums.PaymentProvider;
 import com.worklynx.backend.common.BaseEntity;
 import com.worklynx.backend.organization.Organization;
 
@@ -43,22 +45,31 @@ public class Subscription extends BaseEntity {
   @Column(nullable = false)
   private Status status;
 
+  @Enumerated(EnumType.STRING)
+  private PaymentProvider provider;
+
+  @Enumerated(EnumType.STRING)
+  private BillingInterval billingInterval;
+
   private Instant currentPeriodStart;
 
   private Instant currentPeriodEnd;
 
+  private String providerCustomerId;
+
   private String providerSubscriptionId;
 
+  @Column(nullable = false)
+  @Builder.Default
+  private boolean cancelAtPeriodEnd = false;
+
+  private Instant cancelledAt;
+
   public enum Plan {
-    FREE,
-    PRO,
-    ENTERPRISE
+    FREE, PRO, ENTERPRISE
   }
 
   public enum Status {
-    ACTIVE,
-    TRIALING,
-    PAST_DUE,
-    CANCELLED
+    ACTIVE, TRIALING, INCOMPLETE, PAST_DUE, CANCELLED, EXPIRED
   }
 }
